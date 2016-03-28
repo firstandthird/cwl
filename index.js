@@ -11,10 +11,9 @@ const initAWS = (argv) => {
 
 const handler = (handler, argv) => {
   const aws = initAWS(argv);
-  // todo: test security credentials here or later?
   handler(aws, argv);
 };
-// major commands, each requires an inited interface to AWS.CloudWatch:
+
 const commands = [
   {
     name: 'groups',

@@ -52,7 +52,7 @@ const print = (argv, groups) => {
   if (argv.f) {
     console.log("filtering by %s", argv.f)
     groups = filter.filterAll(groups, {
-      fieldName: 'name',
+      fieldName: 'logGroupName',
       expression: argv.f
     });
   }
