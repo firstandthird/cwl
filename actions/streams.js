@@ -5,6 +5,7 @@ const moment = require('moment');
 const filesize = require('filesize');
 const async = require('async');
 const colors = require('colors');
+const filter = require('../lib/filter');
 
 const getStreams = (cwlogs, groups) => {
   if (!Array.isArray(groups)) {
@@ -14,7 +15,6 @@ const getStreams = (cwlogs, groups) => {
   const table = new Table({
     head: ['No', 'Group Name', 'Name', 'Created', 'Size']
   });
-
   let count = 1;
 
   async.eachSeries(groups, (group, next) => {
@@ -22,7 +22,6 @@ const getStreams = (cwlogs, groups) => {
       if (err) {
         return next(err);
       }
-
       data.logStreams.forEach((stream) => {
         const name = stream.logStreamName;
         const created = moment(stream.creationTime);
@@ -32,7 +31,6 @@ const getStreams = (cwlogs, groups) => {
 
         count = count + 1;
       });
-
       next();
     });
   }, (err) => {
