@@ -3,6 +3,7 @@
 const purdy = require('purdy');
 const Table = require('cli-table');
 const _ = require('lodash');
+const filter = require('../lib/filter');
 
 module.exports.builder = {
   l: {
@@ -39,9 +40,22 @@ module.exports.builder = {
     default: true,
     type: Boolean
   },
+  f: {
+    alias: 'filter',
+    describe: 'Filter groups to show by a regular expression',
+    default: undefined,
+    type: String
+  },
 };
 
 const print = (argv, groups) => {
+  if (argv.f) {
+    console.log("filtering by %s", argv.f)
+    groups = filter.filterAll(groups, {
+      fieldName: 'name',
+      expression: argv.f
+    });
+  }
   groups.forEach((group) => {
     const toShow = {};
     _.each({

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 'use strict';
 const _ = require('lodash');
 const yargs = require('yargs');
@@ -47,11 +46,6 @@ const commands = [
 _.each(commands, (c) => {
   yargs.command(c.name, c.desc, c.builder, c.handler);
 });
-// let usageString =  `$0 <command> where command is one of:
-//
-// `;
-// usageString += _.values(_.mapValues(commands, 'name')).join(', ');
-// yargs.usage(usageString)
 
 yargs.demand(1)
 .strict()
