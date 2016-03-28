@@ -56,7 +56,7 @@ const print = (argv, groups) => {
       expression: argv.f
     });
   }
-  groups.forEach((group) => {
+  groups.slice(0, argv.l).forEach((group) => {
     const toShow = {};
     _.each({
       name: 'logGroupName',
