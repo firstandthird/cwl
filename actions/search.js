@@ -95,7 +95,7 @@ const printLogSet = (argv, stream, logData) => {
   if (!argv.p) {
     const table = new Table({
       head: ['No', 'Tags', 'Msg', 'Timestamp'],
-      colWidths: [3, 30, 100, 10]
+      colWidths: [3, 30, 100, 25]
     });
     _.each(logData.slice(0, argv.l), (log, count) => {
       table.push([
@@ -135,7 +135,7 @@ const getLogEventsForStreams = (cwlogs, argv, streams, done) => {
         printLogSet(argv, stream, eventData.events);
         callback(err);
       });
-    } else if (argv.s === stream.logStreamName) {
+    } else if (filter.filterOne(stream, { fieldName: 'logStreamName', expression: argv.s })) {
       console.log("fetching events for stream %s", params.logStreamName);
       cwlogs.getLogEvents(params, (err, eventData) => {
         printLogSet(argv, stream, eventData.events);
