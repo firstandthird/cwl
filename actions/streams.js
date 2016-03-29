@@ -46,7 +46,7 @@ const print = (argv, logStreams) => {
   });
 };
 
-const getStreams = (cwlogs, groups, argv, callback) => {
+const getStreams = (cwlogs, groups, callback) => {
   if (!Array.isArray(groups)) {
     groups = [groups];
   }
@@ -87,7 +87,7 @@ module.exports.builder = {
   t: {
     alias: 'table',
     describe: 'Print in table form',
-    default: false,
+    default: true,
     type: 'boolean'
   },
   f: {
@@ -99,7 +99,7 @@ module.exports.builder = {
 };
 
 module.exports.handler = (cwlogs, argv) => {
-  getStreams(cwlogs, [argv.g], argv, (err, logStreams) => {
+  getStreams(cwlogs, [argv.g], (err, logStreams) => {
     if (err) throw err;
     print(argv, logStreams);
   });

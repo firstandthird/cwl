@@ -4,6 +4,7 @@ const yargs = require('yargs');
 const groups = require('./actions/groups.js');
 const streams = require('./actions/streams.js');
 const tail = require('./actions/tail.js');
+const search = require('./actions/search.js');
 
 const initAWS = (argv) => {
   return require('./lib/commonAWS')({ argv });
@@ -32,7 +33,14 @@ const commands = [
     desc: 'grab the last 10 mins of logs and then fetch every few seconds',
     builder: tail.builder,
     handler: tail.handler
+  },
+  {
+    name: 'search',
+    desc: ' search group of logs for a specific query. can include streamname too.',
+    builder: search.builder,
+    handler: search.handler
   }
+
 ];
 
 // register each command with yargs:
