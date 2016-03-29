@@ -5,40 +5,68 @@ const moment = require('moment');
 const filesize = require('filesize');
 const async = require('async');
 const colors = require('colors');
+const purdy = require('purdy');
+const _ = require('lodash');
 const filter = require('../lib/filter');
 
-const getStreams = (cwlogs, groups) => {
-  if (!Array.isArray(groups)) {
-    groups = [groups];
-  }
-
+const printTable = (argv, logStreams) => {
   const table = new Table({
     head: ['No', 'Group Name', 'Name', 'Created', 'Size']
   });
   let count = 1;
+  logStreams.slice(0, argv.l).forEach((stream) => {
+    const streamName = stream.logStreamName;
+    const groupName = stream.logGroupName;
+    const created = moment(stream.creationTime);
+    const size = filesize(stream.storedBytes);
+    table.push([count, groupName, streamName, created.format('YYYY-MM-DD HH:MM:SS'), size]);
+    count = count + 1;
+  });
+  console.log(table.toString());
+};
 
+const print = (argv, logStreams) => {
+  if (argv.t) {
+    return printTable(argv, logStreams);
+  }
+  if (argv.f) {
+    console.log("filtering by stream name %s", argv.f)
+    logStreams = filter.filterAll(logStreams, {
+      fieldName: 'logStreamName',
+      expression: argv.f
+    });
+  }
+  logStreams.slice(0, argv.l).forEach((stream) => {
+    purdy({
+      logGroupName: stream.logGroupName,
+      logStreamName: stream.logStreamName,
+      size: stream.storedBytes,
+      created: moment(stream.creationTime).format('YYYY-MM-DD HH:MM:SS')
+    });
+  });
+};
+
+const getStreams = (cwlogs, groups, argv, callback) => {
+  if (!Array.isArray(groups)) {
+    groups = [groups];
+  }
+  let logStreams = [];
   async.eachSeries(groups, (group, next) => {
     cwlogs.describeLogStreams({ logGroupName: group }, (err, data) => {
       if (err) {
         return next(err);
       }
-      data.logStreams.forEach((stream) => {
-        const name = stream.logStreamName;
-        const created = moment(stream.creationTime);
-        const size = filesize(stream.storedBytes);
-
-        table.push([count, group, name, created.format('YYYY-MM-DD HH:MM:SS'), size]);
-
-        count = count + 1;
+      _.each(data.logStreams, (stream) => {
+        logStreams.push(_.defaults(stream, { logGroupName: group }));
       });
       next();
     });
   }, (err) => {
-    if (err) throw err;
-
-    console.log(table.toString());
+    callback(err, logStreams);
   });
 };
+
+module.exports.getStreams = getStreams;
 
 module.exports.builder = {
   l: {
@@ -56,8 +84,23 @@ module.exports.builder = {
     describe: 'Group you want to list',
     default: 'prod-apps',
   },
+  t: {
+    alias: 'table',
+    describe: 'Print in table form',
+    default: false,
+    type: 'boolean'
+  },
+  f: {
+    alias: 'filter',
+    describe: 'Filter log messages to show by a regular expression',
+    default: undefined,
+    type: 'string'
+  },
 };
 
 module.exports.handler = (cwlogs, argv) => {
-  getStreams(cwlogs, [argv.g]);
+  getStreams(cwlogs, [argv.g], argv, (err, logStreams) => {
+    if (err) throw err;
+    print(argv, logStreams);
+  });
 };

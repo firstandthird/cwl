@@ -19,31 +19,27 @@ const commands = [
     name: 'groups',
     desc: 'list cloudwatch log groups',
     builder: groups.builder,
-    handler: (argv) => {
-      handler(groups.handler, argv);
-    }
+    handler: groups.handler
   },
   {
     name: 'streams',
     desc: 'list streams for a group',
     builder: streams.builder,
-    handler: (argv) => {
-      handler(streams.handler, argv);
-    }
+    handler: streams.handler
   },
   {
     name: 'tail',
     desc: 'grab the last 10 mins of logs and then fetch every few seconds',
     builder: tail.builder,
-    handler: (argv) => {
-      handler(tail.handler, argv);
-    }
+    handler: tail.handler
   }
 ];
 
 // register each command with yargs:
 _.each(commands, (c) => {
-  yargs.command(c.name, c.desc, c.builder, c.handler);
+  yargs.command(c.name, c.desc, c.builder, (argv) => {
+    handler(c.handler, argv);
+  });
 });
 
 yargs.demand(1)
