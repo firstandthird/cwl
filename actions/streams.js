@@ -26,15 +26,14 @@ const printTable = (argv, logStreams) => {
 };
 
 const print = (argv, logStreams) => {
-  if (argv.t) {
-    return printTable(argv, logStreams);
-  }
-  if (argv.f) {
-    console.log("filtering by stream name %s", argv.f)
+  if (argv.s) {
     logStreams = filter.filterAll(logStreams, {
       fieldName: 'logStreamName',
-      expression: argv.f
+      expression: argv.s
     });
+  }
+  if (argv.t) {
+    return printTable(argv, logStreams);
   }
   logStreams.slice(0, argv.l).forEach((stream) => {
     purdy({
@@ -90,11 +89,10 @@ module.exports.builder = {
     default: true,
     type: 'boolean'
   },
-  f: {
-    alias: 'filter',
-    describe: 'Filter log messages to show by a regular expression',
-    default: undefined,
-    type: 'string'
+  s: {
+    alias: 'stream',
+    describe: 'Filter streams to show by a regular expression',
+    default: undefined
   },
 };
 
