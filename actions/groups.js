@@ -4,7 +4,7 @@ const purdy = require('purdy');
 const Table = require('cli-table');
 const _ = require('lodash');
 const filter = require('../lib/filter');
-
+const moment = require('moment');
 module.exports.builder = {
   l: {
     alias: 'limit',
@@ -30,13 +30,13 @@ module.exports.builder = {
   },
   s: {
     alias: 'size',
-    describe: 'Show the storedBytes for each group (default is true)',
+    describe: 'Show the storedBytes for each group ',
     default: true,
     type: Boolean
   },
   n: {
     alias: 'name',
-    describe: 'Show the name of the group (default is true)',
+    describe: 'Show the name of the group ',
     default: true,
     type: Boolean
   },
@@ -56,8 +56,22 @@ const print = (argv, groups) => {
       expression: argv.f
     });
   }
+  const head = [];
+  _.each({
+    name: 'logGroupName',
+    size: 'storedBytes',
+    created: 'creationTime',
+    arn: 'arn'
+  }, (val, key) => {
+    if (argv[key]) {
+      head.push(_.capitalize(key));
+    }
+  });
+  const table = new Table({
+    head: head
+  });
   groups.slice(0, argv.l).forEach((group) => {
-    const toShow = {};
+    const row = [];
     _.each({
       name: 'logGroupName',
       size: 'storedBytes',
@@ -65,11 +79,22 @@ const print = (argv, groups) => {
       arn: 'arn'
     }, (val, key) => {
       if (argv[key]) {
-        toShow[val] = group[val];
+        switch (key) {
+          case 'name':
+            row.push(group[val].yellow);
+            break;
+          case 'created':
+            row.push(moment(group[val]).format('YYYY-MM-DD HH:MM:SS').blue);
+            break;
+          default:
+            row.push(group[val]);
+            break;
+        }
       }
     });
-    purdy(toShow);
+    table.push(row);
   });
+  console.log(table.toString());
 };
 
 module.exports.handler = (cwlogs, argv) => {
