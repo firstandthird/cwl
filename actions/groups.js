@@ -50,7 +50,7 @@ module.exports.builder = {
 
 const print = (argv, groups) => {
   if (argv.f) {
-    console.log("filtering by %s", argv.f)
+    console.log('filtering by %s', argv.f);
     groups = filter.filterAll(groups, {
       fieldName: 'logGroupName',
       expression: argv.f
@@ -67,9 +67,7 @@ const print = (argv, groups) => {
       head.push(_.capitalize(key));
     }
   });
-  const table = new Table({
-    head: head
-  });
+  const table = new Table({ head: head });
   groups.slice(0, argv.l).forEach((group) => {
     const row = [];
     _.each({
