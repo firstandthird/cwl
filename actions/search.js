@@ -5,6 +5,8 @@ const async = require('async');
 const moment = require('moment');
 const filter = require('../lib/filter');
 const _ = require('lodash');
+const purdy = require('purdy');
+
 module.exports.builder = {
   l: {
     alias: 'limit',
@@ -31,6 +33,11 @@ module.exports.builder = {
   //   default: moment().toString(),
   //   describe: 'limit the # of groups to show (default 1000)'
   // },
+  p: {
+    alias: 'purdy',
+    default: false,
+    describe: 'set to true to pretty-print as JSON, otherwise prints as table'
+  },
   q: {
     alias: 'query',
     default: undefined,
@@ -39,7 +46,7 @@ module.exports.builder = {
   t: {
     alias: 'tag',
     default: undefined,
-    describe: 'mtaches only items that include this tag'
+    describe: 'a Javascript RegEx to filter tags against'
   }
 };
 
@@ -84,20 +91,24 @@ const filterLogSet = (argv, logData) => {
 const printLogSet = (argv, stream, logData) => {
   logData = filterLogSet(argv, logData);
   // sift messages by any query param:
-  console.log("STREAM %s: ", stream.logStreamName);
-  const table = new Table({
-    head: ['No', 'Tags', 'Msg', 'Timestamp'],
-    colWidths: [3, 30, 100, 10]
-  });
-  _.each(logData.slice(0, argv.l), (log, count) => {
-    table.push([
-      count,
-      log.tag,
-      log.msg,
-      moment(log.timestamp).format('YYYY-MM-DD HH:MM:SS')
-    ]);
-  });
-  console.log(table.toString());
+  console.log("STREAM %s: ---------------------------------------", stream.logStreamName);
+  if (!argv.p) {
+    const table = new Table({
+      head: ['No', 'Tags', 'Msg', 'Timestamp'],
+      colWidths: [3, 30, 100, 10]
+    });
+    _.each(logData.slice(0, argv.l), (log, count) => {
+      table.push([
+        count,
+        log.tag,
+        log.msg,
+        moment(log.timestamp).format('YYYY-MM-DD HH:MM:SS')
+      ]);
+    });
+    console.log(table.toString());
+  } else {
+    purdy(logData.slice(0, argv.l));
+  }
 };
 
 const getParamsForEventQuery = (argv, stream) => {
