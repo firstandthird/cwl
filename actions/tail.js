@@ -57,9 +57,8 @@ const tail = (cwlogs, argv) => {
   const timePadding = 10 * 1000;
   const seenEvents = {};
 
-  const getLogs = (params, startTime, limit) => {
+  const getLogs = (params, startTime) => {
     params.startTime = params.startTime ? params.startTime : new Date().getTime() - startTime - timePadding;
-    console.log(`fetching new log events at ${new Date(params.startTime).toTimeString()}--------------------------------`);
     params.limit = argv.l;
     cwlogs.filterLogEvents(params, (error, data) => {
       params.startTime = _.last(data.events).timestamp;
