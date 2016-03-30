@@ -1,16 +1,17 @@
 {
   "name": "cwl",
   "description": "AWS Cloudwatch Logs",
-  "homepage": "https://github.com/firstandthird/cwltail",
+  "homepage": "https://github.com/firstandthird/cwl",
   "author": "First+Third",
   "version": "0.0.3",
   "repository": {
     "type": "git",
-    "url": "https://github.com/firstandthird/cwltail.git"
+    "url": "https://github.com/firstandthird/cwl.git"
   },
   "keywords": [
     "aws",
     "cloudwatch",
+    "cloud watch",
     "logs",
     "tail"
   ],
