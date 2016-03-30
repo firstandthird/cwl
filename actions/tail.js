@@ -1,12 +1,12 @@
 /* eslint-disable no-console */
 'use strict';
 const purdy = require('purdy');
-
+const _ = require('lodash');
 module.exports.builder = {
   l: {
     alias: 'limit',
-    default: 1000,
-    describe: 'limit the # of groups to show (default 1000)'
+    default: 30,
+    describe: 'limit the # of log events to fetch at a time'
   },
   r: {
     alias: 'region',
@@ -22,6 +22,16 @@ module.exports.builder = {
     alias: 'stream',
     describe: 'Stream Name (optional)',
     default: undefined,
+  },
+  i: {
+    alias: 'interval',
+    describe: '# of seconds to wait before fetching newest set of logs',
+    default: 5,
+  },
+  m: {
+    alias: 'max',
+    describe: 'maximum # of times to fetch before exiting',
+    default: 300,
   },
 };
 
@@ -43,17 +53,16 @@ const tail = (cwlogs, argv) => {
   }
 
   let count = 0;
-  const max = 300;
-  const defaultInterval = 5 * 1000;
+  const defaultInterval = argv.i * 1000;
   const timePadding = 10 * 1000;
   const seenEvents = {};
 
   const getLogs = (params, startTime, limit) => {
-    params.startTime = new Date().getTime() - startTime - timePadding;
-
-    params.limit = limit || null;
-
+    params.startTime = params.startTime ? params.startTime : new Date().getTime() - startTime - timePadding;
+    console.log(`fetching new log events at ${new Date(params.startTime).toTimeString()}--------------------------------`);
+    params.limit = argv.l;
     cwlogs.filterLogEvents(params, (error, data) => {
+      params.startTime = _.last(data.events).timestamp;
       if (error) {
         console.log(error);
       }
@@ -75,11 +84,8 @@ const tail = (cwlogs, argv) => {
           seenEvents[event.eventId] = true;
         });
       }
-
-      params.nextToken = data.nextForwardToken;
-
       count++;
-      if (count === max) {
+      if (count === argv.m) {
         console.log('--- All Done ---');
         process.exit(0);
       }
