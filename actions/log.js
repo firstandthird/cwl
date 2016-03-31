@@ -1,6 +1,6 @@
 'use strict';
 const prompt = require('prompt');
-const Table = require('cli-table');
+// const Table = require('cli-table');
 const moment = require('moment');
 const _ = require('lodash');
 const async = require('async');
@@ -23,14 +23,8 @@ module.exports.builder = {
     describe: 'specify the streams to view',
     type: 'array'
   },
-  c: {
-    alias: 'chunk',
-    default: 1000,
-    describe: 'number of events to fetch at a time (adjust to adjust performance of log reader)'
-  }
 };
 
-const stepSize = 1000 * 60 * 60;
 let curPage = [];
 let curParams = undefined;
 
@@ -50,47 +44,6 @@ const initParams = (argv) => {
     params.logStreamNames = argv.s;
   }
   return params;
-}
-
-
-const prevTime = () => {
-  console.log(`prev time is ${moment(curParams.endTime)}`);
-  curParams.startTime = moment(curParams.startTime).subtract(1, 'hours').toDate().getTime();
-  console.log(`post time is ${moment(curParams.startTime)}`);
-}
-const nextStartTime = () => {
-  curParams.startTime = moment(curParams.startTime).add(1, 'hours').toDate().getTime();
-}
-
-const getPrevPage = (cwlogs, argv, callback) => {
-  console.log("fetching prev page....");
-  if (curParams.nextToken) {
-    console.log("nextToken")
-    delete curParams.startTime;
-    delete curParams.endTime;
-    curPage = [];
-    getLogsUntilLimitReached(cwlogs, argv.l, prevTime, callback);
-  } else {
-    console.log("date limit")
-    curParams.endTime = _.last(curPage).timestamp;
-    curPage = [];
-    getLogsUntilLimitReached(cwlogs, argv.l, prevTime, callback);
-  }
-};
-
-
-const getNextPage = (cwlogs, argv, callback) => {
-  console.log("fetching next page...");
-  delete curParams.startTime;
-  delete curParams.endTime;
-  if (curParams.nextToken) {
-    curPage = [];
-    getLogsUntilLimitReached(cwlogs, argv.l, nextStartTime, callback);
-  } else {
-    curParams.endTime = _.last(curPage).timestamp;
-    curPage = [];
-    getLogsUntilLimitReached(cwlogs, argv.l, nextStartTime, callback);
-  }
 };
 
 
@@ -109,21 +62,54 @@ const getLogsUntilLimitReached = (cwlogs, limit, iterator, allDone) => {
           return callback(err);
         }
         if (data.nextToken) {
-          console.log("there are more i didn't fetch");
           curParams.nextToken = data.nextToken;
         } else {
-          console.log("iterating date")
           delete curParams.nextToken;
           iterator();
         }
         curPage = _.sortBy(_.union(curPage, data.events), (o) => { return -o.timestamp;});
-        console.log(`building page, events fetched = ${curPage.length} `);
+        console.log('building page...');
         callback();
       });
     },
     allDone
   );
 };
+
+const prevTime = () => {
+  curParams.startTime = moment(curParams.startTime).subtract(1, 'hours').toDate().getTime();
+};
+
+const getPrevPage = (cwlogs, argv, callback) => {
+  console.log('fetching prev page....');
+  if (curParams.nextToken) {
+    delete curParams.startTime;
+    curPage = [];
+    getLogsUntilLimitReached(cwlogs, argv.l, prevTime, callback);
+  } else {
+    curParams.endTime = _.last(curPage).timestamp;
+    curPage = [];
+    getLogsUntilLimitReached(cwlogs, argv.l, prevTime, callback);
+  }
+};
+/*
+todo: add support for 'next'
+const nextTime = () => {
+  curParams.startTime = moment(curParams.startTime).add(1, 'hours').toDate().getTime();
+}
+const getNextPage = (cwlogs, argv, callback) => {
+  console.log("fetching next page...");
+  if (curParams.nextToken) {
+    delete curParams.startTime;
+    curPage = [];
+    getLogsUntilLimitReached(cwlogs, argv.l, nextTime, callback);
+  } else {
+    curParams.startTime = _.first(curPage).timestamp;
+    curPage = [];
+    getLogsUntilLimitReached(cwlogs, argv.l, nextTime, callback);
+  }
+};
+*/
 
 const getStartingPage = (cwlogs, argv, allDone) => {
   curParams = initParams(argv);
@@ -134,6 +120,8 @@ const formatTimestamp = (timestamp) => {
   return moment(timestamp).format('MMMM Do, HH:mm:ss');
 };
 
+/*
+todo: add support for table output:
 const printPageTable = (page) => {
   const table = new Table({
     head: ['Timestamp', 'Stream', 'Message']
@@ -147,26 +135,27 @@ const printPageTable = (page) => {
   });
   console.log(table.toString());
 }
+const nextCommands = ['n', 'next'];
+*/
 
 const printPage = (page) => {
   _.each(page, (event) => {
     console.log(`${event.logStreamName} ${formatTimestamp(event.timestamp).red}  ${event.message.yellow}`
     );
   });
-}
+};
 const quitCommands = ['q', 'quit', 'exit', '!'];
 const prevCommands = ['', 'p', 'prev'];
-const nextCommands = ['n', 'next'];
 const cmdMatches = (cmdList, cmd) => {
   return _.intersection(cmdList, [cmd.toLowerCase()]).length > 0;
-}
+};
 
-const promptMessage = `(n)ext/ (p)rev/ (q)uit, default is 'prev'`;
+// const promptMessage = `(n)ext/ (p)rev/ (q)uit, default is 'prev'`;
+const promptMessage = '(p)rev/ (q)uit (hit enter for prev)';
 
 module.exports.handler = (cwlogs, argv) => {
   prompt.message = '';
-  prompt.delimiter = '>'
-  const params = initParams(argv);
+  prompt.delimiter = '>';
 
   const handlePrompt = (err, result) => {
     if (err) {
@@ -182,12 +171,13 @@ module.exports.handler = (cwlogs, argv) => {
         prompt.get([promptMessage], handlePrompt);
       });
     }
-    if (cmdMatches(nextCommands, result[promptMessage])) {
-      getNextPage(cwlogs, argv, () => {
-        printPage(curPage);
-        prompt.get([promptMessage], handlePrompt);
-      });
-    }
+    // todo: add support for 'next'
+    // if (cmdMatches(nextCommands, result[promptMessage])) {
+    //   getNextPage(cwlogs, argv, () => {
+    //     printPage(curPage);
+    //     prompt.get([promptMessage], handlePrompt);
+    //   });
+    // }
     prompt.get([promptMessage], handlePrompt);
   };
 
@@ -198,5 +188,4 @@ module.exports.handler = (cwlogs, argv) => {
     printPage(curPage);
     prompt.get([promptMessage], handlePrompt);
   });
-
 };
