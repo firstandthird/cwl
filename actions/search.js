@@ -6,6 +6,7 @@ const moment = require('moment');
 const filter = require('../lib/filter');
 const _ = require('lodash');
 const purdy = require('purdy');
+const logUtils = require('../lib/logUtils');
 
 module.exports.builder = {
   l: {
@@ -50,28 +51,10 @@ module.exports.builder = {
   }
 };
 
-const getTags = (argv, log) => {
-  try {
-    const msg = JSON.parse(log.message);
-    return _.keys(msg.tags).join(',');
-  } catch (exc) {
-    return 'None';
-  }
-};
-
-const getMsg = (argv, log) => {
-  try {
-    const msg = JSON.parse(log.message);
-    return JSON.stringify(msg.message);
-  } catch (exc) {
-    return log.message;
-  }
-};
-
 const filterLogSet = (argv, logData) => {
   _.each(logData, (log) => {
-    log.tag = getTags(argv, log);
-    log.msg = getMsg(argv, log);
+    log.tag = logUtils.getTags(argv, log);
+    log.msg = logUtils.getMsg(argv, log);
   });
   if (argv.q) {
     logData = filter.filterAll(logData, {
