@@ -3,7 +3,6 @@ const prompt = require('prompt');
 const moment = require('moment');
 const _ = require('lodash');
 const async = require('async');
-const colors = require('colors');
 const logUtils = require('../lib/logUtils');
 module.exports.builder = {
   l: {
@@ -99,11 +98,11 @@ const iterateToPreviousTime = () => {
   curParams.startTime = moment(curYoungest).subtract(1, 'hours').toDate().getTime();
   curParams.endTime = curYoungest;
 };
-const iterateToNextTime = () => {
+// const iterateToNextTime = () => {
   // everything between the oldest event and now:
-  curParams.startTime = _.first(pages[index]).timestamp;
-  curParams.endTime = new Date().getTime();
-}
+  // curParams.startTime = _.first(pages[index]).timestamp;
+  // curParams.endTime = new Date().getTime();
+// }
 
 const getStartingPage = (cwlogs, argv, allDone) => {
   curParams = initParams(argv);
@@ -133,10 +132,10 @@ const getPrevPage = (cwlogs, argv, callback) => {
 };
 
 const getNextPage = (cwlogs, argv, callback) => {
-  if (!curParams.nextToken ) {
+  if (!curParams.nextToken) {
     const nextIndex = index - 1;
     if (nextIndex < 0) {
-      console.log(">>>> Reached beginning of log");
+      console.log('`>>>> Reached beginning of log');
       callback();
       // todo: query for new logs and add them to the front of the list
       // curPage = [];
