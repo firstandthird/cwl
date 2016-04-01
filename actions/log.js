@@ -5,7 +5,7 @@ const moment = require('moment');
 const _ = require('lodash');
 const async = require('async');
 const colors = require('colors');
-
+const logUtils = require('../lib/logUtils');
 module.exports.builder = {
   l: {
     alias: 'limit',
@@ -27,7 +27,9 @@ module.exports.builder = {
 
 let curPage = [];
 let curParams = undefined;
-
+let curDirection = 'newest';
+let prevOldest = undefined;
+let prevYoungest = undefined;
 
 const initParams = (argv) => {
   const params = {
@@ -39,13 +41,12 @@ const initParams = (argv) => {
   // } else {
   //   params.startTime = new Date().getTime() - (7 * 24 * 60 * 60 * 1000);
   // }
-  params.startTime = moment(new Date()).startOf('hour').toDate().getTime();
+  params.startTime = moment(new Date()).subtract(1, 'hours').toDate().getTime();
   if (argv.s.length > 0) {
     params.logStreamNames = argv.s;
   }
   return params;
 };
-
 
 const getLogsUntilLimitReached = (cwlogs, limit, iterator, allDone) => {
   async.whilst(
@@ -53,6 +54,8 @@ const getLogsUntilLimitReached = (cwlogs, limit, iterator, allDone) => {
       const notDone = curParams.nextToken || curPage.length < limit;
       if (notDone === false) {
         curPage = curPage.slice(0, limit);
+        prevOldest = _.first(curPage).timestamp;
+        prevYoungest = _.last(curPage).timestamp;
       }
       return notDone;
     },
@@ -68,7 +71,13 @@ const getLogsUntilLimitReached = (cwlogs, limit, iterator, allDone) => {
           iterator();
         }
         curPage = _.sortBy(_.union(curPage, data.events), (o) => { return -o.timestamp;});
-        console.log('building page...');
+        console.log('building page...%s', curPage.length);
+        if (curParams.startTime) {
+          console.log(moment(curParams.startTime).toString());
+        }
+        if (curParams.endTime) {
+          console.log(moment(curParams.endTime).toString());
+        }
         callback();
       });
     },
@@ -76,49 +85,58 @@ const getLogsUntilLimitReached = (cwlogs, limit, iterator, allDone) => {
   );
 };
 
+const printParams = (msg) => {
+  console.log(msg);
+  logUtils.getTimestamp(curParams.startTime);
+  logUtils.getTimestamp(curParams.endTime);
+}
+
 const prevTime = () => {
-  curParams.startTime = moment(curParams.startTime).subtract(1, 'hours').toDate().getTime();
+  curParams.startTime = moment(prevYoungest).subtract(1, 'hours').toDate().getTime();
+  curParams.endTime = prevYoungest;
 };
 
 const getPrevPage = (cwlogs, argv, callback) => {
   console.log('fetching prev page....');
-  if (curParams.nextToken) {
-    delete curParams.startTime;
-    curPage = [];
-    getLogsUntilLimitReached(cwlogs, argv.l, prevTime, callback);
+  if (curParams.nextToken && curDirection == 'prev') {
+    printParams("get by prev token");
   } else {
-    curParams.endTime = _.last(curPage).timestamp;
-    curPage = [];
-    getLogsUntilLimitReached(cwlogs, argv.l, prevTime, callback);
+    prevTime();
+    printParams("get by prev time")
   }
+  curDirection = 'prev';
+  curPage = [];
+  getLogsUntilLimitReached(cwlogs, argv.l, prevTime, callback);
 };
-/*
-todo: add support for 'next'
+
 const nextTime = () => {
-  curParams.startTime = moment(curParams.startTime).add(1, 'hours').toDate().getTime();
+  curParams.startTime = prevOldest;
+  curParams.endTime = moment(prevOldest).add(1, 'hours').toDate().getTime();
 }
+
+// next is everything older than the oldest
+// prev is everything younger than the youngest
+
 const getNextPage = (cwlogs, argv, callback) => {
   console.log("fetching next page...");
-  if (curParams.nextToken) {
-    delete curParams.startTime;
-    curPage = [];
-    getLogsUntilLimitReached(cwlogs, argv.l, nextTime, callback);
+  if (curParams.nextToken && curDirection === 'next') {
+    printParams("get by next token")
   } else {
-    curParams.startTime = _.first(curPage).timestamp;
-    curPage = [];
-    getLogsUntilLimitReached(cwlogs, argv.l, nextTime, callback);
+    // filter by the current least-recent event:
+    nextTime();
+    printParams("get by next time");
   }
+  curDirection = 'next';
+  curPage = [];
+  getLogsUntilLimitReached(cwlogs, argv.l, nextTime, callback);
 };
-*/
 
 const getStartingPage = (cwlogs, argv, allDone) => {
   curParams = initParams(argv);
+  curDirection = 'prev';
   getLogsUntilLimitReached(cwlogs, argv.l, prevTime, allDone);
 };
 
-const formatTimestamp = (timestamp) => {
-  return moment(timestamp).format('MMMM Do, HH:mm:ss');
-};
 
 /*
 todo: add support for table output:
@@ -128,34 +146,31 @@ const printPageTable = (page) => {
   })
   _.each(page, (event) => {
     table.push([
-      formatTimestamp(event.timestamp),
+      logUtils.getTimestamp(event.timestamp),
       event.logStreamName,
       event.message
     ]);
   });
   console.log(table.toString());
 }
-const nextCommands = ['n', 'next'];
 */
 
-const printPage = (page) => {
-  _.each(page, (event) => {
-    console.log(`${event.logStreamName} ${formatTimestamp(event.timestamp).red}  ${event.message.yellow}`
-    );
-  });
-};
 const quitCommands = ['q', 'quit', 'exit', '!'];
 const prevCommands = ['', 'p', 'prev'];
+const nextCommands = ['n', 'next'];
 const cmdMatches = (cmdList, cmd) => {
   return _.intersection(cmdList, [cmd.toLowerCase()]).length > 0;
 };
 
-// const promptMessage = `(n)ext/ (p)rev/ (q)uit, default is 'prev'`;
-const promptMessage = '(p)rev/ (q)uit (hit enter for prev)';
+const promptMessage = `  `;
+// const promptMessage = '(p)rev/ (q)uit (hit enter for prev)';
 
 module.exports.handler = (cwlogs, argv) => {
   prompt.message = '';
-  prompt.delimiter = '>';
+  prompt.delimiter = '';
+  const printPage = (page) => {
+    logUtils.printLogSet(argv, page);
+  };
 
   const handlePrompt = (err, result) => {
     if (err) {
@@ -172,12 +187,12 @@ module.exports.handler = (cwlogs, argv) => {
       });
     }
     // todo: add support for 'next'
-    // if (cmdMatches(nextCommands, result[promptMessage])) {
-    //   getNextPage(cwlogs, argv, () => {
-    //     printPage(curPage);
-    //     prompt.get([promptMessage], handlePrompt);
-    //   });
-    // }
+    if (cmdMatches(nextCommands, result[promptMessage])) {
+      getNextPage(cwlogs, argv, () => {
+        printPage(curPage);
+        prompt.get([promptMessage], handlePrompt);
+      });
+    }
     prompt.get([promptMessage], handlePrompt);
   };
 
