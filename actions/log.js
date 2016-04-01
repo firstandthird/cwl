@@ -1,6 +1,5 @@
 'use strict';
 const prompt = require('prompt');
-// const Table = require('cli-table');
 const moment = require('moment');
 const _ = require('lodash');
 const async = require('async');
@@ -25,11 +24,18 @@ module.exports.builder = {
   },
 };
 
+// as we fetch pages further back in time,
+//  we will store them here:
+const pages = [];
+// index of the current page in pages[]
+let index = -1;
 let curPage = [];
 let curParams = undefined;
-let curDirection = 'newest';
-let prevOldest = undefined;
-let prevYoungest = undefined;
+let curYoungest = undefined;
+
+const addPage = (page) => {
+  pages.push(page);
+};
 
 const initParams = (argv) => {
   const params = {
@@ -48,14 +54,21 @@ const initParams = (argv) => {
   return params;
 };
 
-const getLogsUntilLimitReached = (cwlogs, limit, iterator, allDone) => {
+//helpful debugging method:
+// const printParams = (msg) => {
+//   console.log(msg);
+//   console.log(`start: ${logUtils.getTimestamp(curParams.startTime)}`);
+//   console.log(`end: ${logUtils.getTimestamp(curParams.endTime)}`);
+//   console.log(`next: ${curParams.nextToken}`);
+// };
+
+const buildNewPage = (cwlogs, limit, iterator, allDone) => {
   async.whilst(
     () => {
       const notDone = curParams.nextToken || curPage.length < limit;
       if (notDone === false) {
         curPage = curPage.slice(0, limit);
-        prevOldest = _.first(curPage).timestamp;
-        prevYoungest = _.last(curPage).timestamp;
+        curYoungest = _.last(curPage).timestamp;
       }
       return notDone;
     },
@@ -67,16 +80,14 @@ const getLogsUntilLimitReached = (cwlogs, limit, iterator, allDone) => {
         if (data.nextToken) {
           curParams.nextToken = data.nextToken;
         } else {
+          // clear this so we know not to query it next time:
           delete curParams.nextToken;
           iterator();
         }
         curPage = _.sortBy(_.union(curPage, data.events), (o) => { return -o.timestamp;});
-        console.log('building page...%s', curPage.length);
-        if (curParams.startTime) {
-          console.log(moment(curParams.startTime).toString());
-        }
-        if (curParams.endTime) {
-          console.log(moment(curParams.endTime).toString());
+        // printParams("building page " + curPage.length)
+        if (curPage.length > 0) {
+          curYoungest = _.last(curPage).timestamp;
         }
         callback();
       });
@@ -84,76 +95,63 @@ const getLogsUntilLimitReached = (cwlogs, limit, iterator, allDone) => {
     allDone
   );
 };
-
-const printParams = (msg) => {
-  console.log(msg);
-  logUtils.getTimestamp(curParams.startTime);
-  logUtils.getTimestamp(curParams.endTime);
+const iterateToPreviousTime = () => {
+  curParams.startTime = moment(curYoungest).subtract(1, 'hours').toDate().getTime();
+  curParams.endTime = curYoungest;
+};
+const iterateToNextTime = () => {
+  // everything between the oldest event and now:
+  curParams.startTime = _.first(pages[index]).timestamp;
+  curParams.endTime = new Date().getTime();
 }
-
-const prevTime = () => {
-  curParams.startTime = moment(prevYoungest).subtract(1, 'hours').toDate().getTime();
-  curParams.endTime = prevYoungest;
-};
-
-const getPrevPage = (cwlogs, argv, callback) => {
-  console.log('fetching prev page....');
-  if (curParams.nextToken && curDirection == 'prev') {
-    printParams("get by prev token");
-  } else {
-    prevTime();
-    printParams("get by prev time")
-  }
-  curDirection = 'prev';
-  curPage = [];
-  getLogsUntilLimitReached(cwlogs, argv.l, prevTime, callback);
-};
-
-const nextTime = () => {
-  curParams.startTime = prevOldest;
-  curParams.endTime = moment(prevOldest).add(1, 'hours').toDate().getTime();
-}
-
-// next is everything older than the oldest
-// prev is everything younger than the youngest
-
-const getNextPage = (cwlogs, argv, callback) => {
-  console.log("fetching next page...");
-  if (curParams.nextToken && curDirection === 'next') {
-    printParams("get by next token")
-  } else {
-    // filter by the current least-recent event:
-    nextTime();
-    printParams("get by next time");
-  }
-  curDirection = 'next';
-  curPage = [];
-  getLogsUntilLimitReached(cwlogs, argv.l, nextTime, callback);
-};
 
 const getStartingPage = (cwlogs, argv, allDone) => {
   curParams = initParams(argv);
-  curDirection = 'prev';
-  getLogsUntilLimitReached(cwlogs, argv.l, prevTime, allDone);
+  buildNewPage(cwlogs, argv.l, iterateToPreviousTime, allDone);
 };
 
 
-/*
-todo: add support for table output:
-const printPageTable = (page) => {
-  const table = new Table({
-    head: ['Timestamp', 'Stream', 'Message']
-  })
-  _.each(page, (event) => {
-    table.push([
-      logUtils.getTimestamp(event.timestamp),
-      event.logStreamName,
-      event.message
-    ]);
-  });
-  console.log(table.toString());
-}
-*/
+const getPrevPage = (cwlogs, argv, callback) => {
+  if (!curParams.nextToken) {
+    const nextIndex = index + 1;
+    if (nextIndex > pages.length - 1) {
+      // get a new page of events from AWS
+      // that is prior to the last page we got:
+      iterateToPreviousTime();
+      curPage = [];
+      buildNewPage(cwlogs, argv.l, iterateToPreviousTime, () => {
+        index += 1;
+        addPage(curPage);
+        callback();
+      });
+    } else {
+      index += 1;
+      curPage = pages[index];
+      callback();
+    }
+  }
+};
+
+const getNextPage = (cwlogs, argv, callback) => {
+  if (!curParams.nextToken ) {
+    const nextIndex = index - 1;
+    if (nextIndex < 0) {
+      console.log(">>>> Reached beginning of log");
+      callback();
+      // todo: query for new logs and add them to the front of the list
+      // curPage = [];
+      // buildNewPage(cwlogs, argv.l, iterateToNextTime, (res) => {
+      //   pages.unshift(curPage);
+      //   index = 0;
+      //   callback();
+      // });
+    } else {
+      index -= 1;
+      curPage = pages[index];
+      callback();
+    }
+  }
+};
 
 const quitCommands = ['q', 'quit', 'exit', '!'];
 const prevCommands = ['', 'p', 'prev'];
@@ -168,6 +166,7 @@ const promptMessage = `  `;
 module.exports.handler = (cwlogs, argv) => {
   prompt.message = '';
   prompt.delimiter = '';
+  console.log(' p (or enter) for prev page of logs, n for next page, q to exit');
   const printPage = (page) => {
     logUtils.printLogSet(argv, page);
   };
@@ -193,14 +192,16 @@ module.exports.handler = (cwlogs, argv) => {
         prompt.get([promptMessage], handlePrompt);
       });
     }
-    prompt.get([promptMessage], handlePrompt);
   };
 
   getStartingPage(cwlogs, argv, (err) => {
     if (err) {
       throw err;
     }
+    addPage(curPage);
+    index++;
     printPage(curPage);
+    prompt.start();
     prompt.get([promptMessage], handlePrompt);
   });
 };
