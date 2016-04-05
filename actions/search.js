@@ -43,30 +43,14 @@ module.exports.builder = {
     alias: 'query',
     default: undefined,
     describe: 'a Javascript RegEx to filter against'
-  },
-  t: {
-    alias: 'tag',
-    default: undefined,
-    describe: 'a Javascript RegEx to filter tags against'
   }
 };
 
 const filterLogSet = (argv, logData) => {
-  _.each(logData, (log) => {
-    log.tag = logUtils.getTags(argv, log);
-    log.msg = logUtils.getMsg(argv, log);
-  });
   if (argv.q) {
     logData = filter.filterAll(logData, {
       expression: argv.q,
-      fieldName: 'msg'
-    });
-  }
-  // filter by content of the tag:
-  if (argv.t) {
-    logData = filter.filterAll(logData, {
-      expression: argv.t,
-      fieldName: 'tag'
+      fieldName: 'message'
     });
   }
   return logData;
@@ -78,14 +62,13 @@ const printLogSet = (argv, stream, logData) => {
   console.log('STREAM %s: ---------------------------------------', stream.logStreamName);
   if (!argv.p) {
     const table = new Table({
-      head: ['No', 'Tags', 'Msg', 'Timestamp'],
-      colWidths: [3, 30, 100, 25]
+      head: ['No', 'Msg', 'Timestamp'],
+      colWidths: [3, 130, 25]
     });
     _.each(logData.slice(0, argv.l), (log, count) => {
       table.push([
         count,
-        log.tag,
-        log.msg,
+        log.message,
         moment(log.timestamp).format('YYYY-MM-DD HH:MM:SS')
       ]);
     });
