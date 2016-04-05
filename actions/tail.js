@@ -5,7 +5,7 @@ const purdy = require('purdy');
 module.exports.builder = {
   l: {
     alias: 'limit',
-    default: 1000,
+    default: 5000,
     describe: 'limit the # of groups to show (default 1000)'
   },
   r: {
