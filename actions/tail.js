@@ -5,8 +5,8 @@ const purdy = require('purdy');
 module.exports.builder = {
   l: {
     alias: 'limit',
-    default: 5000,
-    describe: 'limit the # of groups to show (default 1000)'
+    default: 10000,
+    describe: 'limit the # of groups to show (default 10000)'
   },
   r: {
     alias: 'region',
@@ -89,7 +89,7 @@ const tail = (cwlogs, argv) => {
     });
   };
 
-  getLogs(initialParams, 1000 * 60 * 30, 30);
+  getLogs(initialParams, 1000 * 60 * 10);
 };
 
 module.exports.handler = (cwlogs, argv) => {
