@@ -39,6 +39,12 @@ module.exports.builder = {
     default: true,
     describe: 'attempt to pretty-print logs containing json objects',
     type: 'boolean'
+  },
+  ps: {
+    alias: 'printStreams',
+    default: false,
+    describe: 'print the log stream, only used when prettyPrint is set to false',
+    type: 'boolean'
   }
 };
 

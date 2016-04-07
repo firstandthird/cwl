@@ -24,7 +24,7 @@ module.exports.builder = {
   ps: {
     alias: 'printStreams',
     default: false,
-    describe: 'print the log stream',
+    describe: 'print the log stream, only used when prettyPrint is set to false',
     type: 'boolean'
   },
   s: {
