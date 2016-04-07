@@ -43,7 +43,7 @@ const commands = [
     handler: search.handler
   },
   {
-    name: 'log',
+    name: 'logs',
     desc: 'paginate through all logs starting from newest to oldest, press enter to show the next 50',
     builder: log.builder,
     handler: log.handler

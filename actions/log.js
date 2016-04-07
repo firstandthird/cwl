@@ -15,10 +15,16 @@ module.exports.builder = {
     default: 'prod-apps',
     describe: 'specify the group to view'
   },
+  p: {
+    alias: 'printStreams',
+    default: false,
+    describe: 'print the log stream',
+    type: 'boolean'
+  },
   s: {
     alias: 'streams',
     default: [],
-    describe: 'specify the streams to view',
+    describe: 'comma-separated list of streams to view',
     type: 'array'
   },
 };
