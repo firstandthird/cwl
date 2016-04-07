@@ -15,7 +15,13 @@ module.exports.builder = {
     default: 'prod-apps',
     describe: 'specify the group to view'
   },
-  p: {
+  pp: {
+    alias: 'prettyPrint',
+    default: true,
+    describe: 'attempt to print log ',
+    type: 'boolean'
+  },
+  ps: {
     alias: 'printStreams',
     default: false,
     describe: 'print the log stream',
@@ -89,7 +95,9 @@ const buildNewPage = (cwlogs, limit, iterator, allDone) => {
           delete curParams.nextToken;
           iterator();
         }
-        curPage = _.sortBy(_.union(curPage, data.events), (o) => { return -o.timestamp;});
+        curPage = _.sortBy(_.union(curPage, data.events), (o) => {
+          return -o.timestamp;
+        });
         // printParams("building page " + curPage.length)
         if (curPage.length > 0) {
           curYoungest = _.last(curPage).timestamp;
@@ -165,7 +173,7 @@ const cmdMatches = (cmdList, cmd) => {
   return _.intersection(cmdList, [cmd.toLowerCase()]).length > 0;
 };
 
-const promptMessage = `  `;
+const promptMessage = '   ';
 // const promptMessage = '(p)rev/ (q)uit (hit enter for prev)';
 
 module.exports.handler = (cwlogs, argv) => {

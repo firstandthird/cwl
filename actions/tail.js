@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 'use strict';
-const purdy = require('purdy');
 const _ = require('lodash');
+const logUtils = require('../lib/logUtils');
 module.exports.builder = {
   l: {
     alias: 'limit',
@@ -34,6 +34,12 @@ module.exports.builder = {
     describe: 'maximum # of times to fetch before exiting',
     default: 300,
   },
+  pp: {
+    alias: 'prettyPrint',
+    default: true,
+    describe: 'attempt to pretty-print logs containing json objects',
+    type: 'boolean'
+  }
 };
 
 const tail = (cwlogs, argv) => {
@@ -49,9 +55,8 @@ const tail = (cwlogs, argv) => {
     interleaved: true
   };
   if (argv.s.length > 0) {
-    console.log("setting stream ");
-    console.log(argv.s)
-    initialParams.logStreamNames = argv.s
+    console.log('setting stream to %s', argv.s);
+    initialParams.logStreamNames = argv.s;
   }
 
   if (logStreamName) {
@@ -79,15 +84,7 @@ const tail = (cwlogs, argv) => {
             if (seenEvents[event.eventId]) {
               return;
             }
-            const d = new Date(event.timestamp);
-            const localTime = d.toLocaleTimeString();
-            if (event.message[0] === '{') {
-              const json = JSON.parse(event.message);
-              json.localTime = localTime;
-              purdy(json);
-            } else {
-              console.log(`${localTime}: ${event.message}`);
-            }
+            logUtils.printLog(argv, event);
             seenEvents[event.eventId] = true;
           });
         }
