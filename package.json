@@ -23,7 +23,9 @@
     "filesize": "^3.2.1",
     "human-interval": "^0.1.5",
     "lodash": "^4.6.1",
+    "logr": "^1.7.0",
     "moment": "^2.12.0",
+    "prompt": "^1.0.0",
     "purdy": "^1.6.0",
     "yargs": "^4.3.2"
   },

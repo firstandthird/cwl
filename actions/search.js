@@ -6,6 +6,7 @@ const moment = require('moment');
 const filter = require('../lib/filter');
 const _ = require('lodash');
 const purdy = require('purdy');
+const logUtils = require('../lib/logUtils');
 
 module.exports.builder = {
   l: {
@@ -42,48 +43,14 @@ module.exports.builder = {
     alias: 'query',
     default: undefined,
     describe: 'a Javascript RegEx to filter against'
-  },
-  t: {
-    alias: 'tag',
-    default: undefined,
-    describe: 'a Javascript RegEx to filter tags against'
-  }
-};
-
-const getTags = (argv, log) => {
-  try {
-    const msg = JSON.parse(log.message);
-    return _.keys(msg.tags).join(',');
-  } catch (exc) {
-    return 'None';
-  }
-};
-
-const getMsg = (argv, log) => {
-  try {
-    const msg = JSON.parse(log.message);
-    return JSON.stringify(msg.message);
-  } catch (exc) {
-    return log.message;
   }
 };
 
 const filterLogSet = (argv, logData) => {
-  _.each(logData, (log) => {
-    log.tag = getTags(argv, log);
-    log.msg = getMsg(argv, log);
-  });
   if (argv.q) {
     logData = filter.filterAll(logData, {
       expression: argv.q,
-      fieldName: 'msg'
-    });
-  }
-  // filter by content of the tag:
-  if (argv.t) {
-    logData = filter.filterAll(logData, {
-      expression: argv.t,
-      fieldName: 'tag'
+      fieldName: 'message'
     });
   }
   return logData;
@@ -95,14 +62,13 @@ const printLogSet = (argv, stream, logData) => {
   console.log('STREAM %s: ---------------------------------------', stream.logStreamName);
   if (!argv.p) {
     const table = new Table({
-      head: ['No', 'Tags', 'Msg', 'Timestamp'],
-      colWidths: [3, 30, 100, 25]
+      head: ['No', 'Msg', 'Timestamp'],
+      colWidths: [3, 130, 25]
     });
     _.each(logData.slice(0, argv.l), (log, count) => {
       table.push([
         count,
-        log.tag,
-        log.msg,
+        log.message,
         moment(log.timestamp).format('YYYY-MM-DD HH:MM:SS')
       ]);
     });
