@@ -89,7 +89,6 @@ const getLogEventsForStream = (cwlogs, argv, stream, allDone) => {
   const params = getParamsForEventQuery(argv, stream);
   let allStreamEvents = [];
   let isDone = false;
-
   // keep querying AWS until there are no more events:
   async.until(
     () => {
@@ -110,6 +109,7 @@ const getLogEventsForStream = (cwlogs, argv, stream, allDone) => {
       });
     },
     () => {
+      console.log(stream.logStreamName)
       printLogSet(argv, stream, allStreamEvents);
       allDone(null, allStreamEvents);
     }
