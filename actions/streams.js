@@ -8,7 +8,7 @@ const colors = require('colors');
 const purdy = require('purdy');
 const _ = require('lodash');
 const filter = require('../lib/filter');
-
+const logUtils = require('../lib/logUtils');
 const printTable = (argv, logStreams) => {
   const table = new Table({
     head: ['No', 'Group Name', 'Name', 'Created', 'Size']
@@ -97,8 +97,10 @@ module.exports.builder = {
 };
 
 module.exports.handler = (cwlogs, argv) => {
+  logUtils.startSpinner();
   getStreams(cwlogs, [argv.g], (err, logStreams) => {
     if (err) throw err;
+    logUtils.stopSpinner();
     print(argv, logStreams);
   });
 };

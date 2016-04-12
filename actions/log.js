@@ -193,14 +193,18 @@ module.exports.handler = (cwlogs, argv) => {
       return process.exit(0);
     }
     if (cmdMatches(prevCommands, result[promptMessage])) {
+      logUtils.startSpinner();
       return getPrevPage(cwlogs, argv, () => {
+        logUtils.stopSpinner();
         printPage(curPage);
         prompt.get([promptMessage], handlePrompt);
       });
     }
     // todo: add support for 'next'
     if (cmdMatches(nextCommands, result[promptMessage])) {
+      logUtils.startSpinner();
       getNextPage(cwlogs, argv, () => {
+        logUtils.stopSpinner();
         printPage(curPage);
         prompt.get([promptMessage], handlePrompt);
       });

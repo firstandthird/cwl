@@ -5,7 +5,7 @@ const async = require('async');
 const moment = require('moment');
 const _ = require('lodash');
 const purdy = require('purdy');
-// const logUtils = require('../lib/logUtils');
+const logUtils = require('../lib/logUtils');
 
 module.exports.builder = {
   l: {
@@ -109,7 +109,6 @@ const getLogEventsForStream = (cwlogs, argv, stream, allDone) => {
       });
     },
     () => {
-      console.log(stream.logStreamName)
       printLogSet(argv, stream, allStreamEvents);
       allDone(null, allStreamEvents);
     }
@@ -127,6 +126,7 @@ const getLogEventsForStreams = (cwlogs, argv, streams, done) => {
 };
 
 module.exports.handler = (cwlogs, argv) => {
+  logUtils.startSpinner();
   async.auto({
     streams: (done) => {
       streamsLib.getStreams(cwlogs, [argv.g], (err, streams) => {
@@ -138,6 +138,7 @@ module.exports.handler = (cwlogs, argv) => {
     }
   ] }
   , (err) => {
+    logUtils.stopSpinner();
     if (err) {
       throw err;
     }
