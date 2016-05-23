@@ -99,7 +99,7 @@ const getLogEventsForStream = (cwlogs, argv, stream, allDone) => {
         if (err) {
           return allDone(err);
         }
-        allStreamEvents = allStreamEvents.concat(eventData.events);
+        printLogSet(argv, stream, eventData.events);
         if (eventData.nextToken) {
           params.nextToken = eventData.nextToken;
         } else {
@@ -109,20 +109,31 @@ const getLogEventsForStream = (cwlogs, argv, stream, allDone) => {
       });
     },
     () => {
-      printLogSet(argv, stream, allStreamEvents);
       allDone(null, allStreamEvents);
     }
   );
 };
 
 const getLogEventsForStreams = (cwlogs, argv, streams, done) => {
+  let found = false;
   async.eachSeries(streams, (stream, callback) => {
     // if they specified a stream list and this isn't on it, skip this stream:
-    if (argv.s.length > 0 && argv.s.indexOf(stream.logStreamName) < 0) {
-      return callback(null, []);
+    if (argv.s.length > 0) {
+      if (argv.s.indexOf(stream.logStreamName) < 0) {
+        return callback(null, []);
+      } else {
+        found = true;
+      }
     }
     getLogEventsForStream(cwlogs, argv, stream, callback);
-  }, done);
+  }, (err, result) => {
+    if (argv.s.length > 0) {
+      if (!found) {
+        console.log(`Did not find any logs for streams ${argv.s}`);
+      }
+    }
+    done();
+  });
 };
 
 module.exports.handler = (cwlogs, argv) => {
