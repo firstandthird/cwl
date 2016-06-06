@@ -5,6 +5,7 @@ const Table = require('cli-table');
 const _ = require('lodash');
 const filter = require('../lib/filter');
 const moment = require('moment');
+const logUtils = require('../lib/logUtils');
 module.exports.builder = {
   l: {
     alias: 'limit',
@@ -98,10 +99,12 @@ const print = (argv, groups) => {
 module.exports.handler = (cwlogs, argv) => {
   const params = {
   };
+  logUtils.startSpinner();
   cwlogs.describeLogGroups(params, (err, data) => {
     if (err) {
       throw err;
     }
+    logUtils.stopSpinner();
     print(argv, data.logGroups);
   });
 };

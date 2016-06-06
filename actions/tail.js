@@ -81,6 +81,9 @@ const tail = (cwlogs, argv) => {
   const seenEvents = {};
 
   const getLogs = (params, startTime) => {
+    logUtils.stopCountdown();
+    console.log('fetching latest logs...');
+    logUtils.startSpinner();
     params.startTime = params.startTime ? params.startTime
       : new Date().getTime() - startTime - timePadding;
     params.limit = argv.l;
@@ -110,6 +113,9 @@ const tail = (cwlogs, argv) => {
       } catch (exc) {
         console.log(exc);
       } finally {
+        logUtils.stopSpinner();
+        console.log("counting down to next fetch in....")
+        logUtils.startCountdown(argv.i);
         setTimeout(() => {
           getLogs(params, defaultInterval);
         }, defaultInterval);
