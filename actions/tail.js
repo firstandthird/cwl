@@ -18,6 +18,12 @@ module.exports.builder = {
     describe: 'Group you want to list',
     default: 'prod-apps',
   },
+  b: {
+    alias: 'beginning',
+    describe: 'Number of minutes into the past to start looking for new log events',
+    default: 10,
+    type: 'Number'
+  },
   s: {
     alias: 'streams',
     describe: 'List of 1 or more streams to show',
@@ -51,6 +57,7 @@ module.exports.builder = {
 const tail = (cwlogs, argv) => {
   const logGroupName = argv.group;
   const logStreamName = argv.stream;
+  const beginning = argv.b;
   if (logStreamName) {
     console.log(' Tailing logs for group %s stream %s', logGroupName, logStreamName);
   } else {
@@ -64,7 +71,6 @@ const tail = (cwlogs, argv) => {
     console.log('setting stream to %s', argv.s);
     initialParams.logStreamNames = argv.s;
   }
-
   if (logStreamName) {
     initialParams.logStreamNames = [logStreamName];
   }
@@ -83,11 +89,13 @@ const tail = (cwlogs, argv) => {
         console.log(error);
       }
       try {
-        params.startTime = _.last(data.events).timestamp;
-
-        if (data.events.length !== 0) {
+        if (data.events.length === 0) {
+          console.log(`(no new events have been posted since ${logUtils.getTimestamp(params.startTime)})`);
+        } else {
+          params.startTime = _.last(data.events).timestamp;
           data.events.forEach((event) => {
             if (seenEvents[event.eventId]) {
+              console.log(`(no new events have been posted since ${logUtils.getTimestamp(params.startTime)})`);
               return;
             }
             logUtils.printLog(argv, event);
@@ -109,7 +117,7 @@ const tail = (cwlogs, argv) => {
     });
   };
 
-  getLogs(initialParams, 1000 * 60 * 10);
+  getLogs(initialParams, 1000 * 60 * beginning);
 };
 
 module.exports.handler = (cwlogs, argv) => {
