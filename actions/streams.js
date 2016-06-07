@@ -56,7 +56,6 @@ const getAllLogStreamsForGroup = (cwlogs, group, callback) => {
     (done) => {
       cwlogs.describeLogStreams(params, (err, data) => {
         if (err) {
-          console.log(err)
           return callback(err, allLogStreams);
         }
         _.each(data.logStreams, (stream) => {
