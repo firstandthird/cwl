@@ -8,14 +8,13 @@ const tail = require('./actions/tail.js');
 const search = require('./actions/search.js');
 const log = require('./actions/log.js');
 
-const initAWS = (argv, callback) => {
-  return require('./lib/commonAWS')(argv, callback);
+const initAWS = (argv) => {
+  return require('./lib/commonAWS')(argv);
 };
 
-const handler = (handler, argv) => {
-  const aws = initAWS(argv, (aws) => {
-    handler(aws, argv);
-  });
+const handler = (actionHandler, argv) => {
+  const aws = initAWS(argv);
+  actionHandler(aws, argv);
 };
 
 const commands = [
