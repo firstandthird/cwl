@@ -8,11 +8,6 @@ module.exports.builder = {
     default: 10000,
     describe: 'limit the # of groups to show (default 10000)'
   },
-  r: {
-    alias: 'region',
-    describe: 'AWS Region to use',
-    default: 'us-east-1',
-  },
   g: {
     alias: 'group',
     describe: 'Group you want to list',

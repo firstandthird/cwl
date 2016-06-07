@@ -12,11 +12,6 @@ module.exports.builder = {
     default: 1000,
     describe: 'limit the # of groups to show (default 1000)'
   },
-  r: {
-    alias: 'region',
-    describe: 'AWS Region to use',
-    default: 'us-east-1',
-  },
   arn: {
     alias: 'arn',
     describe: 'Show the arn for each group',

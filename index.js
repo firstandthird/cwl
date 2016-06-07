@@ -12,9 +12,9 @@ const initAWS = (argv) => {
   return require('./lib/commonAWS')(argv);
 };
 
-const handler = (handler, argv) => {
+const handler = (actionHandler, argv) => {
   const aws = initAWS(argv);
-  handler(aws, argv);
+  actionHandler(aws, argv);
 };
 
 const commands = [
@@ -48,7 +48,6 @@ const commands = [
     builder: log.builder,
     handler: log.handler
   }
-
 ];
 
 // register each command with yargs:
@@ -60,25 +59,20 @@ _.each(commands, (c) => {
 
 yargs.demand(1)
 .option('access_key', {
-  alias: 'access_key',
   describe: 'aws access key'
 })
 .option('secret_key', {
-  alias: 'secret_key',
   describe: 'aws secret key'
 })
-.option('region', {
-  alias: 'region',
-  describe: 'aws region'
+.option('profile', {
+  describe: 'aws profile',
+  default: 'default'
 })
 .option('region', {
-  alias: 'region',
   describe: 'aws region',
-  default: 'default'
 })
 .strict()
 .help('h')
 .alias('h', 'help')
 .env(true)
-.default('profile', 'default')
 .argv;
