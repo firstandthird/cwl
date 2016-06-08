@@ -68,16 +68,19 @@ const printLogSet = (argv, stream, logData) => {
 };
 
 const getParamsForEventQuery = (argv, streams) => {
-
   const params = {
     logGroupName: argv.g,
     limit: 10000,
     startTime: 0
   };
+  // specify which streams to search based on user preference:
   if (argv.s.length > 0) {
     params.logStreamNames = streams;
   } else {
-    params.logStreamNames = _.reduce(streams)
+    params.logStreamNames = _.reduce(streams, (memo, stream) => {
+      memo.push(stream.logStreamName);
+      return memo;
+    });
   }
   if (argv.q) {
     params.filterPattern = argv.q;
