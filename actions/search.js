@@ -46,9 +46,11 @@ module.exports.builder = {
   }
 };
 
-const printLogSet = (argv, stream, logData) => {
+const printLogSet = (argv, logData) => {
+  if (logData.length === 0) {
+    return;
+  }
   // sift messages by any query param:
-  console.log('STREAM %s: ---------------------------------------', stream.logStreamName);
   if (!argv.p) {
     const table = new Table({
       head: ['No', 'Msg', 'Timestamp'],
@@ -57,7 +59,7 @@ const printLogSet = (argv, stream, logData) => {
     _.each(logData.slice(0, argv.l), (log, count) => {
       table.push([
         count,
-        log.message,
+        `${log.logStreamName}: ${log.message}`,
         moment(log.timestamp).format('YYYY-MM-DD HH:mm:SS')
       ]);
     });
@@ -76,11 +78,6 @@ const getParamsForEventQuery = (argv, streams) => {
   // specify which streams to search based on user preference:
   if (argv.s.length > 0) {
     params.logStreamNames = streams;
-  } else {
-    params.logStreamNames = _.reduce(streams, (memo, stream) => {
-      memo.push(stream.logStreamName);
-      return memo;
-    });
   }
   if (argv.q) {
     params.filterPattern = argv.q;
@@ -96,7 +93,7 @@ const getParamsForEventQuery = (argv, streams) => {
 
 const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
   const params = getParamsForEventQuery(argv, streams);
-  let allStreamEvents = [];
+  const allStreamEvents = [];
   let isDone = false;
   // keep querying AWS until there are no more events:
   async.until(
@@ -104,14 +101,12 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
       return isDone;
     },
     (done) => {
-      console.log(params);
       cwlogs.filterLogEvents(params, (err, eventData) => {
         if (err) {
           return allDone(err);
         }
         // put a page out there for this:
-        console.log(eventData.events);
-        // printLogSet(argv, streams, eventData.events);
+        printLogSet(argv, eventData.events);
         if (eventData.nextToken) {
           params.nextToken = eventData.nextToken;
         } else {
@@ -125,17 +120,6 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
     }
   );
 };
-
-// const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
-
-// const getLogEventsForStreams = (cwlogs, argv, streams, done) => {
-//   let found = false;
-//   async.eachSeries(streams, (stream, callback) => {
-//     getLogEventsForStream(cwlogs, argv, stream, callback);
-//   }, (err, result) => {
-//     done(err);
-//   });
-// };
 
 module.exports.handler = (cwlogs, argv) => {
   logUtils.startSpinner();
