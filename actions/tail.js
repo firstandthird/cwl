@@ -76,8 +76,6 @@ const tail = (cwlogs, argv) => {
   const seenEvents = {};
 
   const getLogs = (params, startTime) => {
-    logUtils.stopCountdown();
-    console.log('fetching latest logs...');
     logUtils.startSpinner();
     params.startTime = params.startTime ? params.startTime
       : new Date().getTime() - startTime - timePadding;
@@ -88,18 +86,16 @@ const tail = (cwlogs, argv) => {
       }
       try {
         if (data.events.length === 0) {
-          console.log(`(no new events have been posted since ${logUtils.getTimestamp(params.startTime)})`);
-        } else {
-          params.startTime = _.last(data.events).timestamp;
-          data.events.forEach((event) => {
-            if (seenEvents[event.eventId]) {
-              console.log(`(no new events have been posted since ${logUtils.getTimestamp(params.startTime)})`);
-              return;
-            }
-            logUtils.printLog(argv, event);
-            seenEvents[event.eventId] = true;
-          });
+          return;
         }
+        params.startTime = _.last(data.events).timestamp;
+        data.events.forEach((event) => {
+          if (seenEvents[event.eventId]) {
+            return;
+          }
+          logUtils.printLog(argv, event);
+          seenEvents[event.eventId] = true;
+        });
         count++;
         if (count === argv.m) {
           console.log('--- All Done ---');
@@ -108,9 +104,6 @@ const tail = (cwlogs, argv) => {
       } catch (exc) {
         console.log(exc);
       } finally {
-        logUtils.stopSpinner();
-        console.log("counting down to next fetch in....")
-        logUtils.startCountdown(argv.i);
         setTimeout(() => {
           getLogs(params, defaultInterval);
         }, defaultInterval);
