@@ -64,7 +64,8 @@ yargs.demand(1)
 .option('secret_key', {
   describe: 'aws secret key'
 })
-.option('profile', {
+.option('P', {
+  alias: 'profile',
   describe: 'aws profile',
   default: 'default'
 })
