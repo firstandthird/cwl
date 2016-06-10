@@ -29,6 +29,8 @@
     "ora": "^0.2.1",
     "prompt": "^1.0.0",
     "purdy": "^1.6.0",
+    "tty-table": "^2.0.2",
+    "window-size": "^0.2.0",
     "yargs": "^4.3.2"
   },
   "devDependencies": {
