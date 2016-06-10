@@ -42,8 +42,8 @@ module.exports.builder = {
   },
   q: {
     alias: 'query',
-    default: undefined,
-    describe: 'an AWS RegEx to filter against'
+    describe: 'an AWS RegEx to filter against',
+    demand: true
   }
 };
 
