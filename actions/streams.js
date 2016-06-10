@@ -104,7 +104,7 @@ module.exports.builder = {
   g: {
     alias: 'group',
     describe: 'Group you want to list',
-    default: 'prod-apps',
+    demand: true
   },
   t: {
     alias: 'table',
