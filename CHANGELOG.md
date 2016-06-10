@@ -1,4 +1,21 @@
 
+0.0.5 / 2016-06-10
+==================
+
+  * search requires group arg, stream now requires query arg
+  * cwl - tail get rid of checking messaging
+  * optimized speed
+  * makes index.js use sync instead of async init
+  * removed unneeded module, converted async aws init to sync for simplicity
+  * update eslint,, removed extraneous log statement
+  * added more-advanced aws configuration/credentials options
+  * added support for passing aws credentials/region by command line
+  * fixes stream.js library to show all streams for a group instead of just top 50
+  * better handling of timestamp error in 'tail'
+  * spinners! also features an interval countdown for 'tail'
+  * tested nexttoken, seems to work
+  * uses AWS filter expression, handles nextToken a little better
+
 0.0.4 / 2016-04-08
 ==================
 
