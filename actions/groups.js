@@ -5,16 +5,12 @@ const Table = require('cli-table');
 const _ = require('lodash');
 const filter = require('../lib/filter');
 const moment = require('moment');
+const logUtils = require('../lib/logUtils');
 module.exports.builder = {
   l: {
     alias: 'limit',
     default: 1000,
     describe: 'limit the # of groups to show (default 1000)'
-  },
-  r: {
-    alias: 'region',
-    describe: 'AWS Region to use',
-    default: 'us-east-1',
   },
   arn: {
     alias: 'arn',
@@ -98,10 +94,12 @@ const print = (argv, groups) => {
 module.exports.handler = (cwlogs, argv) => {
   const params = {
   };
+  logUtils.startSpinner();
   cwlogs.describeLogGroups(params, (err, data) => {
     if (err) {
       throw err;
     }
+    logUtils.stopSpinner();
     print(argv, data.logGroups);
   });
 };

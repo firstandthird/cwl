@@ -7,14 +7,15 @@ const streams = require('./actions/streams.js');
 const tail = require('./actions/tail.js');
 const search = require('./actions/search.js');
 const cleanup = require('./actions/cleanup.js');
+const log = require('./actions/log.js');
 
 const initAWS = (argv) => {
-  return require('./lib/commonAWS')({ argv });
+  return require('./lib/commonAWS')(argv);
 };
 
-const handler = (handler, argv) => {
+const handler = (actionHandler, argv) => {
   const aws = initAWS(argv);
-  handler(aws, argv);
+  actionHandler(aws, argv);
 };
 
 const commands = [
@@ -47,8 +48,13 @@ const commands = [
     desc: "remove streams that haven't had logs in the last X days",
     builder: cleanup.builder,
     handler: cleanup.handler
+  },
+  {
+    name: 'logs',
+    desc: 'paginate through all logs starting from newest to oldest, press enter to show the next 50',
+    builder: log.builder,
+    handler: log.handler
   }
-
 ];
 
 // register each command with yargs:
@@ -59,9 +65,21 @@ _.each(commands, (c) => {
 });
 
 yargs.demand(1)
+.option('access_key', {
+  describe: 'aws access key'
+})
+.option('secret_key', {
+  describe: 'aws secret key'
+})
+.option('profile', {
+  describe: 'aws profile',
+  default: 'default'
+})
+.option('region', {
+  describe: 'aws region',
+})
 .strict()
 .help('h')
 .alias('h', 'help')
 .env(true)
-.default('profile', 'default')
 .argv;

@@ -8,7 +8,7 @@ const colors = require('colors');
 const purdy = require('purdy');
 const _ = require('lodash');
 const filter = require('../lib/filter');
-
+const logUtils = require('../lib/logUtils');
 const printTable = (argv, logStreams) => {
   const table = new Table({
     head: ['No', 'Group Name', 'Name', 'Created', 'Size']
@@ -45,22 +45,50 @@ const print = (argv, logStreams) => {
   });
 };
 
+const getAllLogStreamsForGroup = (cwlogs, group, callback) => {
+  const allLogStreams = [];
+  const params = { logGroupName: group };
+  let isDone = false;
+  async.until(
+    () => {
+      return isDone;
+    },
+    (done) => {
+      cwlogs.describeLogStreams(params, (err, data) => {
+        if (err) {
+          return callback(err, allLogStreams);
+        }
+        _.each(data.logStreams, (stream) => {
+          allLogStreams.push(_.defaults(stream, { logGroupName: group }));
+        });
+        if (data.nextToken) {
+          params.nextToken = data.nextToken;
+        } else {
+          isDone = true;
+        }
+        done();
+      });
+    },
+    () => {
+      callback(null, allLogStreams);
+    }
+  );
+};
+
 const getStreams = (cwlogs, groups, callback) => {
   if (!Array.isArray(groups)) {
     groups = [groups];
   }
   let logStreams = [];
   async.eachSeries(groups, (group, next) => {
-    cwlogs.describeLogStreams({ logGroupName: group }, (err, data) => {
-      if (err) {
-        return next(err);
-      }
-      _.each(data.logStreams, (stream) => {
-        logStreams.push(_.defaults(stream, { logGroupName: group }));
-      });
+    getAllLogStreamsForGroup(cwlogs, group, (err, result) => {
+      logStreams = logStreams.concat(result);
       next();
     });
   }, (err) => {
+    if (err) {
+      console.log(err);
+    }
     callback(err, logStreams);
   });
 };
@@ -72,11 +100,6 @@ module.exports.builder = {
     alias: 'limit',
     default: 1000,
     describe: 'limit the # of groups to show (default 1000)'
-  },
-  r: {
-    alias: 'region',
-    describe: 'AWS Region to use',
-    default: 'us-east-1',
   },
   g: {
     alias: 'group',
@@ -97,8 +120,10 @@ module.exports.builder = {
 };
 
 module.exports.handler = (cwlogs, argv) => {
+  logUtils.startSpinner();
   getStreams(cwlogs, [argv.g], (err, logStreams) => {
     if (err) throw err;
+    logUtils.stopSpinner();
     print(argv, logStreams);
   });
 };

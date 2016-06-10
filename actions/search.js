@@ -3,9 +3,9 @@ const Table = require('cli-table');
 const streamsLib = require('./streams.js');
 const async = require('async');
 const moment = require('moment');
-const filter = require('../lib/filter');
 const _ = require('lodash');
 const purdy = require('purdy');
+const logUtils = require('../lib/logUtils');
 
 module.exports.builder = {
   l: {
@@ -19,9 +19,10 @@ module.exports.builder = {
     describe: 'specify the group to search in'
   },
   s: {
-    alias: 'stream',
-    default: '',
-    describe: 'specify the stream to search in'
+    alias: 'streams',
+    default: [],
+    describe: 'comma-separated list of streams to search in',
+    type: 'array'
   },
   // b: {
   //   alias: 'beginTime',
@@ -41,69 +42,23 @@ module.exports.builder = {
   q: {
     alias: 'query',
     default: undefined,
-    describe: 'a Javascript RegEx to filter against'
-  },
-  t: {
-    alias: 'tag',
-    default: undefined,
-    describe: 'a Javascript RegEx to filter tags against'
+    describe: 'an AWS RegEx to filter against'
   }
-};
-
-const getTags = (argv, log) => {
-  try {
-    const msg = JSON.parse(log.message);
-    return _.keys(msg.tags).join(',');
-  } catch (exc) {
-    return 'None';
-  }
-};
-
-const getMsg = (argv, log) => {
-  try {
-    const msg = JSON.parse(log.message);
-    return JSON.stringify(msg.message);
-  } catch (exc) {
-    return log.message;
-  }
-};
-
-const filterLogSet = (argv, logData) => {
-  _.each(logData, (log) => {
-    log.tag = getTags(argv, log);
-    log.msg = getMsg(argv, log);
-  });
-  if (argv.q) {
-    logData = filter.filterAll(logData, {
-      expression: argv.q,
-      fieldName: 'msg'
-    });
-  }
-  // filter by content of the tag:
-  if (argv.t) {
-    logData = filter.filterAll(logData, {
-      expression: argv.t,
-      fieldName: 'tag'
-    });
-  }
-  return logData;
 };
 
 const printLogSet = (argv, stream, logData) => {
-  logData = filterLogSet(argv, logData);
   // sift messages by any query param:
   console.log('STREAM %s: ---------------------------------------', stream.logStreamName);
   if (!argv.p) {
     const table = new Table({
-      head: ['No', 'Tags', 'Msg', 'Timestamp'],
-      colWidths: [3, 30, 100, 25]
+      head: ['No', 'Msg', 'Timestamp'],
+      colWidths: [3, 130, 25]
     });
     _.each(logData.slice(0, argv.l), (log, count) => {
       table.push([
         count,
-        log.tag,
-        log.msg,
-        moment(log.timestamp).format('YYYY-MM-DD HH:MM:SS')
+        log.message,
+        moment(log.timestamp).format('YYYY-MM-DD HH:mm:SS')
       ]);
     });
     console.log(table.toString());
@@ -115,10 +70,12 @@ const printLogSet = (argv, stream, logData) => {
 const getParamsForEventQuery = (argv, stream) => {
   const params = {
     logGroupName: stream.logGroupName,
-    logStreamName: stream.logStreamName,
     startTime: stream.firstEventTimestamp,
     endTime: stream.lastEventTimestamp
   };
+  if (argv.q) {
+    params.filterPattern = argv.q;
+  }
   // if (argv.b) {
   //   params.startTime = moment(argv.b).toDate().getTime()
   // }
@@ -128,27 +85,59 @@ const getParamsForEventQuery = (argv, stream) => {
   return params;
 };
 
-const getLogEventsForStreams = (cwlogs, argv, streams, done) => {
-  async.eachSeries(streams, (stream, callback) => {
-    const params = getParamsForEventQuery(argv, stream);
-    if (!argv.s) {
-      cwlogs.getLogEvents(params, (err, eventData) => {
+const getLogEventsForStream = (cwlogs, argv, stream, allDone) => {
+  const params = getParamsForEventQuery(argv, stream);
+  let allStreamEvents = [];
+  let isDone = false;
+  // keep querying AWS until there are no more events:
+  async.until(
+    () => {
+      return isDone;
+    },
+    (done) => {
+      cwlogs.filterLogEvents(params, (err, eventData) => {
+        if (err) {
+          return allDone(err);
+        }
         printLogSet(argv, stream, eventData.events);
-        callback(err);
+        if (eventData.nextToken) {
+          params.nextToken = eventData.nextToken;
+        } else {
+          isDone = true;
+        }
+        done();
       });
-    } else if (filter.filterOne(stream, { fieldName: 'logStreamName', expression: argv.s })) {
-      console.log('fetching events for stream %s', params.logStreamName);
-      cwlogs.getLogEvents(params, (err, eventData) => {
-        printLogSet(argv, stream, eventData.events);
-        callback(err);
-      });
-    } else {
-      callback(null);
+    },
+    () => {
+      allDone(null, allStreamEvents);
     }
-  }, done);
+  );
+};
+
+const getLogEventsForStreams = (cwlogs, argv, streams, done) => {
+  let found = false;
+  async.eachSeries(streams, (stream, callback) => {
+    // if they specified a stream list and this isn't on it, skip this stream:
+    if (argv.s.length > 0) {
+      if (argv.s.indexOf(stream.logStreamName) < 0) {
+        return callback(null, []);
+      } else {
+        found = true;
+      }
+    }
+    getLogEventsForStream(cwlogs, argv, stream, callback);
+  }, (err, result) => {
+    if (argv.s.length > 0) {
+      if (!found) {
+        console.log(`Did not find any logs for streams ${argv.s}`);
+      }
+    }
+    done();
+  });
 };
 
 module.exports.handler = (cwlogs, argv) => {
+  logUtils.startSpinner();
   async.auto({
     streams: (done) => {
       streamsLib.getStreams(cwlogs, [argv.g], (err, streams) => {
@@ -160,6 +149,7 @@ module.exports.handler = (cwlogs, argv) => {
     }
   ] }
   , (err) => {
+    logUtils.stopSpinner();
     if (err) {
       throw err;
     }
