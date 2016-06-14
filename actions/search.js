@@ -1,12 +1,10 @@
 'use strict';
-const ttyTable = require('tty-table');
 const streamsLib = require('./streams.js');
 const async = require('async');
 const moment = require('moment');
 const _ = require('lodash');
-const purdy = require('purdy');
 const logUtils = require('../lib/logUtils');
-const dimensions = require('window-size');
+const displayUtils = require('../lib/displayUtils.js');
 
 module.exports.builder = {
   l: {
@@ -44,63 +42,6 @@ module.exports.builder = {
     alias: 'query',
     describe: 'an AWS RegEx to filter against',
     demand: true
-  }
-};
-
-const printLogSet = (argv, logData) => {
-  if (logData.length === 0) {
-    return;
-  }
-  // todo: we should set these based on reading
-  // the terminal width in the future:
-  if (!argv.p) {
-    // set the column widths based on screen size:
-    const middleColumnWidth = Math.round(0.7 * dimensions.width) - 1;
-    const leftColumnWidth = Math.round(0.1 * dimensions.width) - 1;
-    const rightColumnWidth = Math.round(0.2 * dimensions.width) - 1;
-    const header = [
-      {
-        value: 'Count',
-        align: 'center',
-        headerColor: 'green',
-        color: 'green',
-        width: leftColumnWidth
-      },
-      {
-        value: 'Msg',
-        align: 'center',
-        formatter: (value) => {
-          let str = value;
-          for (let i = 0; i < value.length; i++) {
-            if (i % (middleColumnWidth - 2) === 0) {
-              str = [str.slice(0, i), '\n', str.slice(i)].join('');
-            }
-          }
-          return str;
-        },
-        headerColor: 'cyan',
-        color: 'cyan',
-        width: middleColumnWidth
-      },
-      {
-        value: 'Timestamp',
-        align: 'left',
-        headerColor: 'red',
-        color: 'red',
-        width: rightColumnWidth
-      }
-    ];
-    const table = ttyTable(header, [], []);
-    _.each(logData.slice(0, argv.l), (log, count) => {
-      table.push([
-        count,
-        log.message,
-        moment(log.timestamp).format('YYYY-MM-DD HH:mm:SS')
-      ]);
-    });
-    console.log(table.render());
-  } else {
-    purdy(logData.slice(0, argv.l));
   }
 };
 
