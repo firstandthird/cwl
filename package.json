@@ -20,6 +20,7 @@
     "aws-sdk": "^2.2.38",
     "cli-table": "^0.3.1",
     "colors": "^1.1.2",
+    "columnify": "^1.5.4",
     "filesize": "^3.2.1",
     "human-interval": "^0.1.5",
     "ini-config-parser": "^0.1.0",
@@ -31,6 +32,7 @@
     "purdy": "^1.6.0",
     "tty-table": "^2.0.2",
     "window-size": "^0.2.0",
+    "wordwrap": "^1.0.0",
     "yargs": "^4.3.2"
   },
   "devDependencies": {
