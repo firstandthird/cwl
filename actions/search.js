@@ -82,7 +82,7 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
           return allDone(err);
         }
         // put a page out there for this:
-        printLogSet(argv, eventData.events);
+        displayUtils.printLogTable(argv, eventData.events);
         if (eventData.nextToken) {
           params.nextToken = eventData.nextToken;
         } else {

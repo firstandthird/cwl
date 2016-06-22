@@ -4,6 +4,8 @@ const moment = require('moment');
 const _ = require('lodash');
 const async = require('async');
 const logUtils = require('../lib/logUtils');
+const displayUtils = require('../lib/displayUtils.js');
+
 module.exports.builder = {
   l: {
     alias: 'limit',
@@ -86,6 +88,7 @@ const buildNewPage = (cwlogs, limit, iterator, allDone) => {
     (callback) => {
       cwlogs.filterLogEvents(curParams, (err, data) => {
         if (err) {
+          console.log(err)
           return callback(err);
         }
         if (data.nextToken) {
@@ -98,7 +101,6 @@ const buildNewPage = (cwlogs, limit, iterator, allDone) => {
         curPage = _.sortBy(_.union(curPage, data.events), (o) => {
           return -o.timestamp;
         });
-        // printParams("building page " + curPage.length)
         if (curPage.length > 0) {
           curYoungest = _.last(curPage).timestamp;
         }
@@ -122,7 +124,6 @@ const getStartingPage = (cwlogs, argv, allDone) => {
   curParams = initParams(argv);
   buildNewPage(cwlogs, argv.l, iterateToPreviousTime, allDone);
 };
-
 
 const getPrevPage = (cwlogs, argv, callback) => {
   if (!curParams.nextToken) {
@@ -181,7 +182,7 @@ module.exports.handler = (cwlogs, argv) => {
   prompt.delimiter = '';
   console.log(' p (or enter) for prev page of logs, n for next page, q to exit');
   const printPage = (page) => {
-    logUtils.printLogSet(argv, page);
+    displayUtils.printLogTable(argv, page);
   };
 
   const handlePrompt = (err, result) => {
