@@ -1,4 +1,5 @@
 'use strict';
+const prompt = require('prompt');
 const streamsLib = require('./streams.js');
 const async = require('async');
 const moment = require('moment');
@@ -10,12 +11,17 @@ module.exports.builder = {
   l: {
     alias: 'limit',
     default: 1000,
-    describe: 'limit the # of groups to show (default 1000)'
+    describe: 'limit the # of log events to show (default 1000)'
+  },
+  i: {
+    alias: 'interactive',
+    default: false,
+    describe: 'after each page of logs is shown, will prompt if you want to search the next N log events (where N is specified by the -l/--limit option)'
   },
   g: {
     alias: 'group',
     default: 'prod-apps',
-    describe: 'specify the group to search in'
+    describe: 'specify the log event to search in'
   },
   s: {
     alias: 'streams',
@@ -23,16 +29,6 @@ module.exports.builder = {
     describe: 'comma-separated list of streams to search in',
     type: 'array'
   },
-  // b: {
-  //   alias: 'beginTime',
-  //   default: moment(new Date()).day(-2).toString(),
-  //   describe: 'limit the # of groups to show (default 1000)'
-  // },
-  // e: {
-  //   alias: 'endTime',
-  //   default: moment().toString(),
-  //   describe: 'limit the # of groups to show (default 1000)'
-  // },
   p: {
     alias: 'purdy',
     default: false,
@@ -48,7 +44,7 @@ module.exports.builder = {
 const getParamsForEventQuery = (argv, streams) => {
   const params = {
     logGroupName: argv.g,
-    limit: 10000,
+    limit: argv.l,
     startTime: 0
   };
   // specify which streams to search based on user preference:
@@ -58,14 +54,14 @@ const getParamsForEventQuery = (argv, streams) => {
   if (argv.q) {
     params.filterPattern = argv.q;
   }
-  // if (argv.b) {
-  //   params.startTime = moment(argv.b).toDate().getTime()
-  // }
-  // if (argv.e) {
-  //   params.endTime = moment(argv.e).toDate().getTime()
-  // }
+  // if there's a token from a previous fetch start there:
+  if (lastToken) {
+    params.nextToken = lastToken;
+  }
   return params;
 };
+
+let lastToken = false;
 
 const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
   const params = getParamsForEventQuery(argv, streams);
@@ -85,9 +81,11 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
         displayUtils.printLogTable(argv, eventData.events);
         if (eventData.nextToken) {
           params.nextToken = eventData.nextToken;
+          lastToken = params.nextToken;
         } else {
-          isDone = true;
+          lastToken = false;
         }
+        isDone = true;
         done();
       });
     },
@@ -97,8 +95,7 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
   );
 };
 
-module.exports.handler = (cwlogs, argv) => {
-  logUtils.startSpinner();
+const doFetch = (cwlogs, argv, lastToken, fetchDone) => {
   async.auto({
     streams: (done) => {
       if (argv.s.length > 0) {
@@ -111,12 +108,39 @@ module.exports.handler = (cwlogs, argv) => {
     },
     events: ['streams', (results, done) => {
       getLogEventsForStream(cwlogs, argv, results.streams, done);
-    }
-  ] }
-  , (err) => {
-    logUtils.stopSpinner();
-    if (err) {
-      throw err;
-    }
-  });
+    }]
+  }, fetchDone);
+};
+
+
+module.exports.handler = (cwlogs, argv) => {
+  // non-interactive mode will just do a fetch and then exit:
+  if (!argv.i) {
+    logUtils.startSpinner();
+    doFetch(cwlogs, argv, null, (err) => {
+      logUtils.stopSpinner();
+      if (err) {
+        throw err;
+      }
+    });
+  // interactive mode will fetch and if there are more out there,
+  // will prompt the user to display more entries
+  } else {
+    const handlePrompt = () => {
+      doFetch(cwlogs, argv, null, (err) => {
+        if (lastToken) {
+          prompt.get(['(hit enter for more results)'], handlePrompt);
+        } else {
+          console.log('No more entries found');
+          prompt.stop();
+        }
+      })
+    };
+    prompt.start();
+    doFetch(cwlogs, argv, null, (err) => {
+      if (lastToken) {
+        prompt.get(['(hit enter for more results)'], handlePrompt);
+      }
+    });
+  }
 };
