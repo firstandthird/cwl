@@ -105,6 +105,7 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
     },
     () => {
       displayUtils.printLogTable(argv, allStreamEvents, count);
+      count += allStreamEvents.length+1;
       // reset the table of events:
       allStreamEvents = [];
       allDone(null, allStreamEvents);
