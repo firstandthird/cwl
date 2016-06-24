@@ -3,9 +3,7 @@ const expect = require('chai').expect;
 const sinon = require('mocha-sinon');
 const aws = require('../lib/commonAWSStub');
 const search = require('../actions/search.js');
-const moment = require('moment');
 describe('search console printing', () => {
-  // fake argv, these are normally set by yargs in index.js:
   let argv = {};
   let cwlogs = {};
 
@@ -32,19 +30,4 @@ describe('search console printing', () => {
     expect(console.log.args[1][0]).to.include('timestamp');
     console.log.restore();
   });
-});
-
-describe('search sort by newest', () => {
-  // fake argv, these are normally set by yargs in index.js:
-  let argv = {};
-  let cwlogs = {};
-
-  beforeEach( () => {
-    cwlogs = aws();
-    argv = {};
-  });
-
-  afterEach( () => {
-  });
-
 });

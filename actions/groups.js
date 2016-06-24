@@ -1,8 +1,5 @@
 /* eslint-disable no-console */
 'use strict';
-const _ = require('lodash');
-const filter = require('../lib/filter');
-const moment = require('moment');
 const logUtils = require('../lib/logUtils');
 const displayUtils = require('../lib/displayUtils');
 

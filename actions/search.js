@@ -2,8 +2,6 @@
 const prompt = require('prompt');
 const streamsLib = require('./streams.js');
 const async = require('async');
-const moment = require('moment');
-const _ = require('lodash');
 const logUtils = require('../lib/logUtils');
 const displayUtils = require('../lib/displayUtils.js');
 
@@ -46,6 +44,8 @@ module.exports.builder = {
   }
 };
 
+let lastToken = false;
+
 const getParamsForEventQuery = (argv, streams) => {
   const params = {
     logGroupName: argv.g,
@@ -69,7 +69,6 @@ const getParamsForEventQuery = (argv, streams) => {
   return params;
 };
 
-let lastToken = false;
 let count = 0;
 const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
   const params = getParamsForEventQuery(argv, streams);
@@ -105,7 +104,7 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
     },
     () => {
       displayUtils.printLogTable(argv, allStreamEvents, count);
-      count += allStreamEvents.length+1;
+      count += allStreamEvents.length + 1;
       // reset the table of events:
       allStreamEvents = [];
       allDone(null, allStreamEvents);
@@ -113,7 +112,7 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
   );
 };
 
-const doFetch = (cwlogs, argv, lastToken, fetchDone) => {
+const doFetch = (cwlogs, argv, prevToken, fetchDone) => {
   async.auto({
     streams: (done) => {
       if (argv.s.length > 0) {
@@ -133,7 +132,7 @@ const doFetch = (cwlogs, argv, lastToken, fetchDone) => {
 
 module.exports.handler = (cwlogs, argv) => {
   if (!argv.q && !argv.statusCode) {
-    return console.log('must specify either -q/--query or a --statusCode')
+    return console.log('must specify either -q/--query or a --statusCode');
   }
   // non-interactive mode will just do a fetch and then exit:
   if (!argv.i) {
@@ -160,7 +159,7 @@ module.exports.handler = (cwlogs, argv) => {
           console.log('No more entries found');
           prompt.stop();
         }
-      })
+      });
     };
     prompt.start();
     doFetch(cwlogs, argv, null, (err) => {

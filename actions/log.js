@@ -88,7 +88,6 @@ const buildNewPage = (cwlogs, limit, iterator, allDone) => {
     (callback) => {
       cwlogs.filterLogEvents(curParams, (err, data) => {
         if (err) {
-          console.log(err)
           return callback(err);
         }
         if (data.nextToken) {
@@ -141,7 +140,7 @@ const getPrevPage = (cwlogs, argv, callback) => {
     } else {
       index += 1;
       curPage = pages[index];
-      callback();
+      return callback();
     }
   }
 };
@@ -151,7 +150,7 @@ const getNextPage = (cwlogs, argv, callback) => {
     const nextIndex = index - 1;
     if (nextIndex < 0) {
       console.log('`>>>> Reached beginning of log');
-      callback();
+      return callback();
       // todo: query for new logs and add them to the front of the list
       // curPage = [];
       // buildNewPage(cwlogs, argv.l, iterateToNextTime, (res) => {
@@ -159,11 +158,10 @@ const getNextPage = (cwlogs, argv, callback) => {
       //   index = 0;
       //   callback();
       // });
-    } else {
-      index -= 1;
-      curPage = pages[index];
-      callback();
     }
+    index -= 1;
+    curPage = pages[index];
+    return callback();
   }
 };
 
