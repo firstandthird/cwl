@@ -50,7 +50,7 @@ const getParamsForEventQuery = (argv, streams) => {
   const params = {
     logGroupName: argv.g,
     limit: argv.l,
-    startTime: 0
+    interleaved: true
   };
   // specify which streams to search based on user preference:
   if (argv.s.length > 0) {
@@ -146,11 +146,15 @@ module.exports.handler = (cwlogs, argv) => {
   // interactive mode will fetch and if there are more out there,
   // will prompt the user to display more entries
   } else {
-    const handlePrompt = () => {
-      // logUtils.startSpinner();
-      doFetch(cwlogs, argv, null, (err) => {
-        if (err) {
-          throw err;
+    const handlePrompt = (err) => {
+      if (err) {
+        logUtils.stopSpinner();
+        return;
+      }
+      logUtils.startSpinner();
+      doFetch(cwlogs, argv, null, (err2) => {
+        if (err2) {
+          throw err2;
         }
         // logUtils.stopSpinner();
         if (lastToken) {
@@ -158,6 +162,7 @@ module.exports.handler = (cwlogs, argv) => {
         } else {
           console.log('No more entries found');
           prompt.stop();
+          logUtils.stopSpinner();
         }
       });
     };
