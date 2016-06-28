@@ -42,7 +42,6 @@ module.exports.builder = {
   q: {
     alias: 'query',
     describe: 'an AWS RegEx to filter against'
-    // demand: true
   },
   last: {
     describe: 'a human-interval expression specifying how far back to begin searching (see https://github.com/rschmukler/human-interval for examples)'
@@ -61,7 +60,7 @@ const getParamsForEventQuery = (argv, streams) => {
     params.logStreamNames = streams;
   }
   if (argv.q) {
-    params.filterPattern = argv.q;
+    params.filterPattern = `${argv.q}`;
   }
   if (argv.statusCode) {
     params.filterPattern = `[..., status_code=${argv.statusCode}, size, referrer, agent]`;
