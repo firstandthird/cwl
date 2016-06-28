@@ -13,6 +13,9 @@ const initAWS = (argv) => {
 };
 
 const handler = (actionHandler, argv) => {
+  if (argv.P) {
+    argv.profile = argv.P;
+  }
   const aws = initAWS(argv);
   actionHandler(aws, argv);
 };
