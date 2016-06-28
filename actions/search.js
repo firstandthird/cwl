@@ -4,6 +4,8 @@ const streamsLib = require('./streams.js');
 const async = require('async');
 const logUtils = require('../lib/logUtils');
 const displayUtils = require('../lib/displayUtils.js');
+const _ = require('lodash');
+const humanInterval = require('human-interval');
 
 module.exports.builder = {
   l: {
@@ -41,6 +43,9 @@ module.exports.builder = {
     alias: 'query',
     describe: 'an AWS RegEx to filter against'
     // demand: true
+  },
+  last: {
+    describe: 'a human-interval expression specifying how far back to begin searching (see https://github.com/rschmukler/human-interval for examples)'
   }
 };
 
@@ -49,7 +54,6 @@ let lastToken = false;
 const getParamsForEventQuery = (argv, streams) => {
   const params = {
     logGroupName: argv.g,
-    limit: argv.l,
     interleaved: true
   };
   // specify which streams to search based on user preference:
@@ -61,6 +65,9 @@ const getParamsForEventQuery = (argv, streams) => {
   }
   if (argv.statusCode) {
     params.filterPattern = `[..., status_code=${argv.statusCode}, size, referrer, agent]`;
+  }
+  if (argv.last) {
+    params.startTime = new Date().getTime() - humanInterval(argv.last);
   }
   // if there's a token from a previous fetch start there:
   if (lastToken) {
@@ -91,6 +98,10 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
         } else {
           lastToken = false;
         }
+        // sort by newest:
+        allStreamEvents = _.sortBy(allStreamEvents, (item) => {
+          return item.timestamp;
+        }).reverse();
         // this must keep fetching until we have argv.limit
         // event logs, or until there are no more to search
         // i.e. eventData.nextToken will be blank
