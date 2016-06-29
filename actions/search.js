@@ -1,23 +1,32 @@
 'use strict';
-const ttyTable = require('tty-table');
+const prompt = require('prompt');
 const streamsLib = require('./streams.js');
 const async = require('async');
-const moment = require('moment');
-const _ = require('lodash');
-const purdy = require('purdy');
 const logUtils = require('../lib/logUtils');
-const dimensions = require('window-size');
+const displayUtils = require('../lib/displayUtils.js');
+const _ = require('lodash');
+const humanInterval = require('human-interval');
 
 module.exports.builder = {
   l: {
     alias: 'limit',
-    default: 1000,
-    describe: 'limit the # of groups to show (default 1000)'
+    default: 10000,
+    describe: 'limit the # of log events to show (default 1000)'
+  },
+  i: {
+    alias: 'interactive',
+    default: false,
+    describe: 'after each page of logs is shown, will prompt if you want to search the next N log events (where N is specified by the -l/--limit option)'
+  },
+  statusCode: {
+    alias: 'statusCode',
+    default: false,
+    describe: 'statusCode XXX is equivalent to -q "[..., status=XXX, size, referrer, agent]" '
   },
   g: {
     alias: 'group',
     default: 'prod-apps',
-    describe: 'specify the group to search in'
+    describe: 'specify the log event to search in'
   },
   s: {
     alias: 'streams',
@@ -25,16 +34,6 @@ module.exports.builder = {
     describe: 'comma-separated list of streams to search in',
     type: 'array'
   },
-  // b: {
-  //   alias: 'beginTime',
-  //   default: moment(new Date()).day(-2).toString(),
-  //   describe: 'limit the # of groups to show (default 1000)'
-  // },
-  // e: {
-  //   alias: 'endTime',
-  //   default: moment().toString(),
-  //   describe: 'limit the # of groups to show (default 1000)'
-  // },
   p: {
     alias: 'purdy',
     default: false,
@@ -42,93 +41,44 @@ module.exports.builder = {
   },
   q: {
     alias: 'query',
-    describe: 'an AWS RegEx to filter against',
-    demand: true
+    describe: 'an AWS RegEx to filter against'
+  },
+  last: {
+    describe: 'a human-interval expression specifying how far back to begin searching (see https://github.com/rschmukler/human-interval for examples)'
   }
 };
 
-const printLogSet = (argv, logData) => {
-  if (logData.length === 0) {
-    return;
-  }
-  // todo: we should set these based on reading
-  // the terminal width in the future:
-  if (!argv.p) {
-    // set the column widths based on screen size:
-    const middleColumnWidth = Math.round(0.7 * dimensions.width) - 1;
-    const leftColumnWidth = Math.round(0.1 * dimensions.width) - 1;
-    const rightColumnWidth = Math.round(0.2 * dimensions.width) - 1;
-    const header = [
-      {
-        value: 'Count',
-        align: 'center',
-        headerColor: 'green',
-        color: 'green',
-        width: leftColumnWidth
-      },
-      {
-        value: 'Msg',
-        align: 'center',
-        formatter: (value) => {
-          let str = value;
-          for (let i = 0; i < value.length; i++) {
-            if (i % (middleColumnWidth - 2) === 0) {
-              str = [str.slice(0, i), '\n', str.slice(i)].join('');
-            }
-          }
-          return str;
-        },
-        headerColor: 'cyan',
-        color: 'cyan',
-        width: middleColumnWidth
-      },
-      {
-        value: 'Timestamp',
-        align: 'left',
-        headerColor: 'red',
-        color: 'red',
-        width: rightColumnWidth
-      }
-    ];
-    const table = ttyTable(header, [], []);
-    _.each(logData.slice(0, argv.l), (log, count) => {
-      table.push([
-        count,
-        log.message,
-        moment(log.timestamp).format('YYYY-MM-DD HH:mm:SS')
-      ]);
-    });
-    console.log(table.render());
-  } else {
-    purdy(logData.slice(0, argv.l));
-  }
-};
+let lastToken = false;
 
 const getParamsForEventQuery = (argv, streams) => {
   const params = {
     logGroupName: argv.g,
-    limit: 10000,
-    startTime: 0
+    interleaved: true
   };
   // specify which streams to search based on user preference:
   if (argv.s.length > 0) {
     params.logStreamNames = streams;
   }
   if (argv.q) {
-    params.filterPattern = argv.q;
+    params.filterPattern = `${argv.q}`;
   }
-  // if (argv.b) {
-  //   params.startTime = moment(argv.b).toDate().getTime()
-  // }
-  // if (argv.e) {
-  //   params.endTime = moment(argv.e).toDate().getTime()
-  // }
+  if (argv.statusCode) {
+    params.filterPattern = `[..., status_code=${argv.statusCode}, size, referrer, agent]`;
+  }
+  if (argv.last) {
+    params.startTime = new Date().getTime() - humanInterval(argv.last);
+  }
+  // if there's a token from a previous fetch start there:
+  if (lastToken) {
+    params.nextToken = lastToken;
+  }
   return params;
 };
 
+let count = 0;
 const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
   const params = getParamsForEventQuery(argv, streams);
-  const allStreamEvents = [];
+  let allStreamEvents = [];
   let isDone = false;
   // keep querying AWS until there are no more events:
   async.until(
@@ -140,24 +90,39 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
         if (err) {
           return allDone(err);
         }
-        // put a page out there for this:
-        printLogSet(argv, eventData.events);
+        allStreamEvents = allStreamEvents.concat(eventData.events);
         if (eventData.nextToken) {
           params.nextToken = eventData.nextToken;
+          lastToken = params.nextToken;
         } else {
+          lastToken = false;
+        }
+        // sort by newest:
+        allStreamEvents = _.sortBy(allStreamEvents, (item) => {
+          return item.timestamp;
+        }).reverse();
+        // this must keep fetching until we have argv.limit
+        // event logs, or until there are no more to search
+        // i.e. eventData.nextToken will be blank
+        if (!lastToken || allStreamEvents.length === argv.l) {
           isDone = true;
+        } else {
+          isDone = false;
         }
         done();
       });
     },
     () => {
+      displayUtils.printLogTable(argv, allStreamEvents, count);
+      count += allStreamEvents.length + 1;
+      // reset the table of events:
+      allStreamEvents = [];
       allDone(null, allStreamEvents);
     }
   );
 };
 
-module.exports.handler = (cwlogs, argv) => {
-  logUtils.startSpinner();
+const doFetch = (cwlogs, argv, prevToken, fetchDone) => {
   async.auto({
     streams: (done) => {
       if (argv.s.length > 0) {
@@ -170,12 +135,55 @@ module.exports.handler = (cwlogs, argv) => {
     },
     events: ['streams', (results, done) => {
       getLogEventsForStream(cwlogs, argv, results.streams, done);
-    }
-  ] }
-  , (err) => {
-    logUtils.stopSpinner();
-    if (err) {
-      throw err;
-    }
-  });
+    }]
+  }, fetchDone);
+};
+
+
+module.exports.handler = (cwlogs, argv) => {
+  if (!argv.q && !argv.statusCode) {
+    return console.log('must specify either -q/--query or a --statusCode');
+  }
+  // non-interactive mode will just do a fetch and then exit:
+  if (!argv.i) {
+    logUtils.startSpinner();
+    doFetch(cwlogs, argv, null, (err) => {
+      logUtils.stopSpinner();
+      if (err) {
+        throw err;
+      }
+    });
+  // interactive mode will fetch and if there are more out there,
+  // will prompt the user to display more entries
+  } else {
+    const handlePrompt = (err) => {
+      if (err) {
+        logUtils.stopSpinner();
+        return;
+      }
+      logUtils.startSpinner();
+      doFetch(cwlogs, argv, null, (err2) => {
+        if (err2) {
+          throw err2;
+        }
+        // logUtils.stopSpinner();
+        if (lastToken) {
+          prompt.get(['(hit enter for more results)'], handlePrompt);
+        } else {
+          console.log('No more entries found');
+          prompt.stop();
+          logUtils.stopSpinner();
+        }
+      });
+    };
+    prompt.start();
+    doFetch(cwlogs, argv, null, (err) => {
+      if (err) {
+        throw err;
+      }
+      if (lastToken) {
+        prompt.get(['(hit enter for more results)'], handlePrompt);
+      }
+    });
+  }
 };

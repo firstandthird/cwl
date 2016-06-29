@@ -1,11 +1,8 @@
 /* eslint-disable no-console */
 'use strict';
-const purdy = require('purdy');
-const Table = require('cli-table');
-const _ = require('lodash');
-const filter = require('../lib/filter');
-const moment = require('moment');
 const logUtils = require('../lib/logUtils');
+const displayUtils = require('../lib/displayUtils');
+
 module.exports.builder = {
   l: {
     alias: 'limit',
@@ -44,53 +41,6 @@ module.exports.builder = {
   },
 };
 
-const print = (argv, groups) => {
-  if (argv.f) {
-    console.log('filtering by %s', argv.f);
-    groups = filter.filterAll(groups, {
-      fieldName: 'logGroupName',
-      expression: argv.f
-    });
-  }
-  const head = [];
-  _.each({
-    name: 'logGroupName',
-    size: 'storedBytes',
-    created: 'creationTime',
-    arn: 'arn'
-  }, (val, key) => {
-    if (argv[key]) {
-      head.push(_.capitalize(key));
-    }
-  });
-  const table = new Table({ head: head });
-  groups.slice(0, argv.l).forEach((group) => {
-    const row = [];
-    _.each({
-      name: 'logGroupName',
-      size: 'storedBytes',
-      created: 'creationTime',
-      arn: 'arn'
-    }, (val, key) => {
-      if (argv[key]) {
-        switch (key) {
-          case 'name':
-            row.push(group[val].yellow);
-            break;
-          case 'created':
-            row.push(moment(group[val]).format('YYYY-MM-DD HH:MM:SS').blue);
-            break;
-          default:
-            row.push(group[val]);
-            break;
-        }
-      }
-    });
-    table.push(row);
-  });
-  console.log(table.toString());
-};
-
 module.exports.handler = (cwlogs, argv) => {
   const params = {
   };
@@ -100,6 +50,6 @@ module.exports.handler = (cwlogs, argv) => {
       throw err;
     }
     logUtils.stopSpinner();
-    print(argv, data.logGroups);
+    displayUtils.printGroupsTable(argv, data.logGroups);
   });
 };

@@ -1,49 +1,9 @@
 /* eslint-disable no-console */
 'use strict';
-const Table = require('cli-table');
-const moment = require('moment');
-const filesize = require('filesize');
 const async = require('async');
-const colors = require('colors');
-const purdy = require('purdy');
 const _ = require('lodash');
-const filter = require('../lib/filter');
 const logUtils = require('../lib/logUtils');
-const printTable = (argv, logStreams) => {
-  const table = new Table({
-    head: ['No', 'Group Name', 'Name', 'Created', 'Size']
-  });
-  let count = 1;
-  logStreams.slice(0, argv.l).forEach((stream) => {
-    const streamName = stream.logStreamName;
-    const groupName = stream.logGroupName;
-    const created = moment(stream.creationTime);
-    const size = filesize(stream.storedBytes);
-    table.push([count, groupName, streamName, created.format('YYYY-MM-DD HH:MM:SS'), size]);
-    count = count + 1;
-  });
-  console.log(table.toString());
-};
-
-const print = (argv, logStreams) => {
-  if (argv.s) {
-    logStreams = filter.filterAll(logStreams, {
-      fieldName: 'logStreamName',
-      expression: argv.s
-    });
-  }
-  if (argv.t) {
-    return printTable(argv, logStreams);
-  }
-  logStreams.slice(0, argv.l).forEach((stream) => {
-    purdy({
-      logGroupName: stream.logGroupName,
-      logStreamName: stream.logStreamName,
-      size: stream.storedBytes,
-      created: moment(stream.creationTime).format('YYYY-MM-DD HH:MM:SS')
-    });
-  });
-};
+const displayUtils = require('../lib/displayUtils.js');
 
 const getAllLogStreamsForGroup = (cwlogs, group, callback) => {
   const allLogStreams = [];
@@ -124,6 +84,7 @@ module.exports.handler = (cwlogs, argv) => {
   getStreams(cwlogs, [argv.g], (err, logStreams) => {
     if (err) throw err;
     logUtils.stopSpinner();
-    print(argv, logStreams);
+    // displayUtils.printStreamTable(argv, logStreams);
+    displayUtils.printStreamColumns(argv, logStreams);
   });
 };
