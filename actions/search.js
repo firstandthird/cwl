@@ -49,6 +49,11 @@ module.exports.builder = {
 };
 
 let lastToken = false;
+// in interactive mode, so long as we have unseen logs
+// we will keep prompting:
+let hasUnseenLogs = true;
+// we will use this to keep track of events we haven't seen:
+let lastEventTimeShown = false;
 
 const getParamsForEventQuery = (argv, streams) => {
   const params = {
@@ -68,22 +73,28 @@ const getParamsForEventQuery = (argv, streams) => {
   if (argv.last) {
     params.startTime = new Date().getTime() - humanInterval(argv.last);
   }
-  // if there's a token from a previous fetch start there:
-  if (lastToken) {
+  // if possible only fetch from the last log shown (interactive mode)
+  if (lastEventTimeShown) {
+    params.endTime = lastEventTimeShown;
+  }
+  // otherwise if there's a token from a previous fetch start there:
+  else if (lastToken) {
     params.nextToken = lastToken;
   }
   return params;
 };
 
 let count = 0;
+let iterations = 0;
 const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
   const params = getParamsForEventQuery(argv, streams);
   let allStreamEvents = [];
-  let isDone = false;
+  let foundEnoughEventsToDisplay = false;
+  lastEventTimeShown = false;
   // keep querying AWS until there are no more events:
   async.until(
     () => {
-      return isDone;
+      return foundEnoughEventsToDisplay;
     },
     (done) => {
       cwlogs.filterLogEvents(params, (err, eventData) => {
@@ -98,23 +109,39 @@ const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
           lastToken = false;
         }
         // sort by newest:
-        allStreamEvents = _.sortBy(allStreamEvents, (item) => {
+        allStreamEvents = _.orderBy(allStreamEvents, (item) => {
           return item.timestamp;
         }).reverse();
         // this must keep fetching until we have argv.limit
-        // event logs, or until there are no more to search
-        // i.e. eventData.nextToken will be blank
-        if (!lastToken || allStreamEvents.length === argv.l) {
-          isDone = true;
+        // event logs, or until there are no more left
+        // to search
+        if (allStreamEvents.length >= argv.l) {
+          foundEnoughEventsToDisplay = true;
+          // save the time of the last one:
+          lastEventTimeShown = _.last(allStreamEvents.slice(0, argv.l)).timestamp;
+        } else if (lastToken) {
+          foundEnoughEventsToDisplay = false;
         } else {
-          isDone = false;
+          foundEnoughEventsToDisplay = true;
         }
+
         done();
       });
     },
     () => {
       displayUtils.printLogTable(argv, allStreamEvents, count);
-      count += allStreamEvents.length + 1;
+      // in interactive mode we will need to know if
+      // there were unseen logs that can still be displayed:
+      if (allStreamEvents.length < argv.l) {
+        hasUnseenLogs = false;
+      }
+      // if AWS passed us a cursor, there are still more events to search:
+      if (lastToken) {
+        hasUnseenLogs = true;
+      }
+      // update the count of events we've seen:
+      iterations++;
+      count = (iterations * argv.l) + 1;
       // reset the table of events:
       allStreamEvents = [];
       allDone(null, allStreamEvents);
@@ -162,12 +189,12 @@ module.exports.handler = (cwlogs, argv) => {
         return;
       }
       logUtils.startSpinner();
+      console.log('doing interactive fetch')
       doFetch(cwlogs, argv, null, (err2) => {
         if (err2) {
           throw err2;
         }
-        // logUtils.stopSpinner();
-        if (lastToken) {
+        if (hasUnseenLogs) {
           prompt.get(['(hit enter for more results)'], handlePrompt);
         } else {
           console.log('No more entries found');
@@ -181,7 +208,7 @@ module.exports.handler = (cwlogs, argv) => {
       if (err) {
         throw err;
       }
-      if (lastToken) {
+      if (hasUnseenLogs) {
         prompt.get(['(hit enter for more results)'], handlePrompt);
       }
     });
