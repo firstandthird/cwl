@@ -45,6 +45,15 @@ module.exports.builder = {
   },
   last: {
     describe: 'a human-interval expression specifying how far back to begin searching (see https://github.com/rschmukler/human-interval for examples)'
+  },
+  around: {
+    alias: 'around',
+    describe: 'search around the indicated time, expressed using human-interval'
+  },
+  range: {
+    alias: 'range',
+    describe: 'used with --around, human-interval range around the indicated time in which to search',
+    default: false
   }
 };
 
@@ -73,12 +82,19 @@ const getParamsForEventQuery = (argv, streams) => {
   if (argv.last) {
     params.startTime = new Date().getTime() - humanInterval(argv.last);
   }
+  if (argv.around) {
+    const distance = humanInterval(argv.around);
+    const centralTime = new Date().getTime() - distance;
+    const range = argv.range ? humanInterval(argv.range) : distance / 10;
+    params.startTime = centralTime - range;
+    params.endTime = centralTime + range;
+    console.log('start time %s to %s', displayUtils.getTimestamp(params.startTime), displayUtils.getTimestamp(params.endTime))
+  }
   // if possible only fetch from the last log shown (interactive mode)
   if (lastEventTimeShown) {
     params.endTime = lastEventTimeShown;
-  }
   // otherwise if there's a token from a previous fetch start there:
-  else if (lastToken) {
+  } else if (lastToken) {
     params.nextToken = lastToken;
   }
   return params;
@@ -189,7 +205,6 @@ module.exports.handler = (cwlogs, argv) => {
         return;
       }
       logUtils.startSpinner();
-      console.log('doing interactive fetch')
       doFetch(cwlogs, argv, null, (err2) => {
         if (err2) {
           throw err2;
