@@ -2,6 +2,8 @@
 'use strict';
 const _ = require('lodash');
 const logUtils = require('../lib/logUtils');
+const displayUtils = require('../lib/displayUtils');
+
 module.exports.builder = {
   l: {
     alias: 'limit',
@@ -93,7 +95,7 @@ const tail = (cwlogs, argv) => {
           if (seenEvents[event.eventId]) {
             return;
           }
-          logUtils.printLog(argv, event);
+          displayUtils.printLog(argv, event);
           seenEvents[event.eventId] = true;
         });
         count++;
