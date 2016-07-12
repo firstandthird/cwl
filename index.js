@@ -7,9 +7,10 @@ const streams = require('./actions/streams.js');
 const tail = require('./actions/tail.js');
 const search = require('./actions/search.js');
 const log = require('./actions/log.js');
+const completion = require('./lib/completion');
 
 const initAWS = (argv) => {
-  return require('./lib/commonAWS')(argv);
+  return require('./lib/commonAWS').init(argv);
 };
 
 const handler = (actionHandler, argv) => {
@@ -67,6 +68,7 @@ yargs.demand(1)
 .option('secret_key', {
   describe: 'aws secret key'
 })
+.completion('completion', completion.handler)
 .option('P', {
   alias: 'profile',
   describe: 'aws profile',

@@ -41,13 +41,17 @@ const getStreams = (cwlogs, groups, callback) => {
   }
   let logStreams = [];
   async.eachSeries(groups, (group, next) => {
+    console.log(group)
     getAllLogStreamsForGroup(cwlogs, group, (err, result) => {
+      if (err) {
+        throw err;
+      }
       logStreams = logStreams.concat(result);
       next();
     });
   }, (err) => {
     if (err) {
-      console.log(err);
+      throw err;
     }
     callback(err, logStreams);
   });

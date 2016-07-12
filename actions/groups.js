@@ -2,11 +2,12 @@
 'use strict';
 const logUtils = require('../lib/logUtils');
 const displayUtils = require('../lib/displayUtils');
+const async = require('async');
 
 module.exports.builder = {
   l: {
     alias: 'limit',
-    default: 1000,
+    default: 50,
     describe: 'limit the # of groups to show (default 1000)'
   },
   arn: {
@@ -41,15 +42,43 @@ module.exports.builder = {
   },
 };
 
-module.exports.handler = (cwlogs, argv) => {
-  const params = {
+const listAllGroups = (cwlogs, argv, callback) => {
+  let params = {
+    limit: argv.l
   };
+  let allGroups = [];
+  let foundEnoughEventsToDisplay = false;
+  async.until(
+    () => {
+      return foundEnoughEventsToDisplay;
+    },
+    (done) => {
+      cwlogs.describeLogGroups(params, (err, data) => {
+        if (err) {
+          throw err;
+        }
+        allGroups = allGroups.concat(data.logGroups);
+        if (data.nextToken) {
+          params.nextToken = data.nextToken;
+          foundEnoughEventsToDisplay = false;
+        } else {
+          foundEnoughEventsToDisplay = true;
+        }
+        done();
+      });
+    },
+    () => {
+      callback(allGroups);
+    });
+};
+
+// exported to make it available to other modules:
+module.exports.listAllGroups = listAllGroups;
+
+module.exports.handler = (cwlogs, argv) => {
   logUtils.startSpinner();
-  cwlogs.describeLogGroups(params, (err, data) => {
-    if (err) {
-      throw err;
-    }
+  listAllGroups(cwlogs, argv, (data) => {
     logUtils.stopSpinner();
-    displayUtils.printGroupsTable(argv, data.logGroups);
+    displayUtils.printGroupsTable(argv, data);
   });
 };
