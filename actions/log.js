@@ -2,7 +2,6 @@
 const prompt = require('prompt');
 const moment = require('moment');
 const _ = require('lodash');
-const async = require('async');
 const logUtils = require('../lib/logUtils');
 module.exports.builder = {
   l: {
@@ -73,16 +72,18 @@ const initParams = (argv) => {
 //   console.log(`next: ${curParams.nextToken}`);
 // };
 
-const buildNewPage = (cwlogs, limit, iterator, allDone) => {
-  async.whilst(
-    () => {
-      const notDone = curParams.nextToken || curPage.length < limit;
-      if (notDone === false) {
-        curPage = curPage.slice(0, limit);
-        curYoungest = _.last(curPage).timestamp;
-      }
-      return notDone;
-    },
+const buildNewPage = async(cwlogs, limit, iterator) => {
+  const notDone = () => {
+    const notDone = curParams.nextToken || curPage.length < limit;
+    if (notDone === false) {
+      curPage = curPage.slice(0, limit);
+      curYoungest = _.last(curPage).timestamp;
+    }
+    return notDone;
+  };
+  do {
+
+  } while (notDone());
     (callback) => {
       cwlogs.filterLogEvents(curParams, (err, data) => {
         if (err) {
