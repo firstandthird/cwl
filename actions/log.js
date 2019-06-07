@@ -3,6 +3,7 @@ const prompt = require('prompt');
 const moment = require('moment');
 const _ = require('lodash');
 const logUtils = require('../lib/logUtils');
+
 module.exports.builder = {
   l: {
     alias: 'limit',
@@ -82,33 +83,28 @@ const buildNewPage = async(cwlogs, limit, iterator) => {
     return notDone;
   };
   do {
-
-  } while (notDone());
-    (callback) => {
-      cwlogs.filterLogEvents(curParams, (err, data) => {
-        if (err) {
-          return callback(err);
-        }
-        if (data.nextToken) {
-          curParams.nextToken = data.nextToken;
-        } else {
-          // clear this so we know not to query it next time:
-          delete curParams.nextToken;
-          iterator();
-        }
-        curPage = _.sortBy(_.union(curPage, data.events), (o) => {
-          return -o.timestamp;
-        });
-        // printParams("building page " + curPage.length)
-        if (curPage.length > 0) {
-          curYoungest = _.last(curPage).timestamp;
-        }
-        callback();
+    cwlogs.filterLogEvents(curParams, (err, data) => {
+      if (err) {
+        return callback(err);
+      }
+      if (data.nextToken) {
+        curParams.nextToken = data.nextToken;
+      } else {
+        // clear this so we know not to query it next time:
+        delete curParams.nextToken;
+        iterator();
+      }
+      curPage = _.sortBy(_.union(curPage, data.events), (o) => {
+        return -o.timestamp;
       });
-    },
-    allDone
-  );
+      // printParams("building page " + curPage.length)
+      if (curPage.length > 0) {
+        curYoungest = _.last(curPage).timestamp;
+      }
+    });
+  } while (notDone());
 };
+
 const iterateToPreviousTime = () => {
   curParams.startTime = moment(curYoungest).subtract(1, 'hours').toDate().getTime();
   curParams.endTime = curYoungest;
@@ -119,13 +115,12 @@ const iterateToPreviousTime = () => {
   // curParams.endTime = new Date().getTime();
 // }
 
-const getStartingPage = (cwlogs, argv, allDone) => {
+const getStartingPage = async(cwlogs, argv) => {
   curParams = initParams(argv);
-  buildNewPage(cwlogs, argv.l, iterateToPreviousTime, allDone);
+  buildNewPage(cwlogs, argv.l, iterateToPreviousTime);
 };
 
-
-const getPrevPage = (cwlogs, argv, callback) => {
+const getPrevPage = async(cwlogs, argv) => {
   if (!curParams.nextToken) {
     const nextIndex = index + 1;
     if (nextIndex > pages.length - 1) {
@@ -133,25 +128,21 @@ const getPrevPage = (cwlogs, argv, callback) => {
       // that is prior to the last page we got:
       iterateToPreviousTime();
       curPage = [];
-      buildNewPage(cwlogs, argv.l, iterateToPreviousTime, () => {
-        index += 1;
-        addPage(curPage);
-        callback();
-      });
+      await buildNewPage(cwlogs, argv.l, iterateToPreviousTime);
+      index += 1;
+      addPage(curPage);
     } else {
       index += 1;
       curPage = pages[index];
-      callback();
     }
   }
 };
 
-const getNextPage = (cwlogs, argv, callback) => {
+const getNextPage = (cwlogs, argv) => {
   if (!curParams.nextToken) {
     const nextIndex = index - 1;
     if (nextIndex < 0) {
       console.log('`>>>> Reached beginning of log');
-      callback();
       // todo: query for new logs and add them to the front of the list
       // curPage = [];
       // buildNewPage(cwlogs, argv.l, iterateToNextTime, (res) => {
@@ -162,7 +153,6 @@ const getNextPage = (cwlogs, argv, callback) => {
     } else {
       index -= 1;
       curPage = pages[index];
-      callback();
     }
   }
 };
@@ -177,7 +167,7 @@ const cmdMatches = (cmdList, cmd) => {
 const promptMessage = '   ';
 // const promptMessage = '(p)rev/ (q)uit (hit enter for prev)';
 
-module.exports.handler = (cwlogs, argv) => {
+module.exports.handler = async(cwlogs, argv) => {
   prompt.message = '';
   prompt.delimiter = '';
   console.log(' p (or enter) for prev page of logs, n for next page, q to exit');
@@ -186,6 +176,7 @@ module.exports.handler = (cwlogs, argv) => {
   };
 
   const handlePrompt = (err, result) => {
+    console.log('handlepromot');
     if (err) {
       throw err;
     }
@@ -195,31 +186,25 @@ module.exports.handler = (cwlogs, argv) => {
     }
     if (cmdMatches(prevCommands, result[promptMessage])) {
       logUtils.startSpinner();
-      return getPrevPage(cwlogs, argv, () => {
-        logUtils.stopSpinner();
-        printPage(curPage);
-        prompt.get([promptMessage], handlePrompt);
-      });
+      getPrevPage(cwlogs, argv);
+      logUtils.stopSpinner();
+      printPage(curPage);
+      prompt.get([promptMessage], handlePrompt);
+      return;
     }
     // todo: add support for 'next'
     if (cmdMatches(nextCommands, result[promptMessage])) {
       logUtils.startSpinner();
-      getNextPage(cwlogs, argv, () => {
-        logUtils.stopSpinner();
-        printPage(curPage);
-        prompt.get([promptMessage], handlePrompt);
-      });
+      getNextPage(cwlogs, argv);
+      logUtils.stopSpinner();
+      printPage(curPage);
+      prompt.get([promptMessage], handlePrompt);
     }
   };
-
-  getStartingPage(cwlogs, argv, (err) => {
-    if (err) {
-      throw err;
-    }
-    addPage(curPage);
-    index++;
-    printPage(curPage);
-    prompt.start();
-    prompt.get([promptMessage], handlePrompt);
-  });
+  await getStartingPage(cwlogs, argv);
+  addPage(curPage);
+  index++;
+  printPage(curPage);
+  prompt.start();
+  prompt.get([promptMessage], handlePrompt);
 };

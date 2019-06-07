@@ -1,7 +1,6 @@
 'use strict';
 const ttyTable = require('tty-table');
 const streamsLib = require('./streams.js');
-const async = require('async');
 const moment = require('moment');
 const _ = require('lodash');
 const purdy = require('purdy');
@@ -126,56 +125,32 @@ const getParamsForEventQuery = (argv, streams) => {
   return params;
 };
 
-const getLogEventsForStream = (cwlogs, argv, streams, allDone) => {
+const getLogEventsForStream = async(cwlogs, argv, streams) => {
   const params = getParamsForEventQuery(argv, streams);
   const allStreamEvents = [];
-  let isDone = false;
+  let notDone = true;
   // keep querying AWS until there are no more events:
-  async.until(
-    () => {
-      return isDone;
-    },
-    (done) => {
-      cwlogs.filterLogEvents(params, (err, eventData) => {
-        if (err) {
-          return allDone(err);
-        }
-        // put a page out there for this:
-        printLogSet(argv, eventData.events);
-        if (eventData.nextToken) {
-          params.nextToken = eventData.nextToken;
-        } else {
-          isDone = true;
-        }
-        done();
-      });
-    },
-    () => {
-      allDone(null, allStreamEvents);
+  do {
+    const eventData = await cwlogs.filterLogEvents(params).promise();
+    // put a page out there for this:
+    printLogSet(argv, eventData.events);
+    if (eventData.nextToken) {
+      params.nextToken = eventData.nextToken;
+    } else {
+      notDone = false;
     }
-  );
+  } while (notDone);
+  return allStreamEvents;
 };
 
-module.exports.handler = (cwlogs, argv) => {
+module.exports.handler = async(cwlogs, argv) => {
   logUtils.startSpinner();
-  async.auto({
-    streams: (done) => {
-      if (argv.s.length > 0) {
-        return done(null, argv.s);
-      }
-      console.log(`searching all streams in group ${argv.g} (this may take a while)`);
-      streamsLib.getStreams(cwlogs, [argv.g], (err, streams) => {
-        done(err, streams);
-      });
-    },
-    events: ['streams', (results, done) => {
-      getLogEventsForStream(cwlogs, argv, results.streams, done);
-    }
-  ] }
-  , (err) => {
-    logUtils.stopSpinner();
-    if (err) {
-      throw err;
-    }
-  });
+  let streams = '';
+  if (argv.s.length > 0) {
+    streams = argv.s;
+  }
+  console.log(`searching all streams in group ${argv.g} (this may take a while)`);
+  streams = await streamsLib.getStreams(cwlogs, [argv.g]);
+  const events = await getLogEventsForStream(cwlogs, argv, streams);
+  logUtils.stopSpinner();
 };
