@@ -91,15 +91,11 @@ const print = (argv, groups) => {
   console.log(table.toString());
 };
 
-module.exports.handler = (cwlogs, argv) => {
+module.exports.handler = async(cwlogs, argv) => {
   const params = {
   };
   logUtils.startSpinner();
-  cwlogs.describeLogGroups(params, (err, data) => {
-    if (err) {
-      throw err;
-    }
-    logUtils.stopSpinner();
-    print(argv, data.logGroups);
-  });
+  const data = await cwlogs.describeLogGroups(params).promise();
+  logUtils.stopSpinner();
+  print(argv, data.logGroups);
 };

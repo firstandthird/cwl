@@ -3,7 +3,6 @@
 const Table = require('cli-table');
 const moment = require('moment');
 const filesize = require('filesize');
-const async = require('async');
 const colors = require('colors');
 const purdy = require('purdy');
 const _ = require('lodash');
@@ -45,52 +44,43 @@ const print = (argv, logStreams) => {
   });
 };
 
-const getAllLogStreamsForGroup = (cwlogs, group, callback) => {
+const getAllLogStreamsForGroup = async(cwlogs, group) => {
   const allLogStreams = [];
   const params = { logGroupName: group };
-  let isDone = false;
-  async.until(
-    () => {
-      return isDone;
-    },
-    (done) => {
-      cwlogs.describeLogStreams(params, (err, data) => {
-        if (err) {
-          return callback(err, allLogStreams);
-        }
-        _.each(data.logStreams, (stream) => {
-          allLogStreams.push(_.defaults(stream, { logGroupName: group }));
-        });
-        if (data.nextToken) {
-          params.nextToken = data.nextToken;
-        } else {
-          isDone = true;
-        }
-        done();
+  let notDone = true;
+  do {
+    try {
+      const data = await cwlogs.describeLogStreams(params).promise();
+      _.each(data.logStreams, (stream) => {
+        allLogStreams.push(_.defaults(stream, { logGroupName: group }));
       });
-    },
-    () => {
-      callback(null, allLogStreams);
+      if (data.nextToken) {
+        params.nextToken = data.nextToken;
+      } else {
+        notDone = false;
+      }
+    } catch (e) {
+      return allLogStreams;
     }
-  );
+  } while (notDone);
+  return allLogStreams;
 };
 
-const getStreams = (cwlogs, groups, callback) => {
+const getStreams = async(cwlogs, groups) => {
   if (!Array.isArray(groups)) {
     groups = [groups];
   }
   let logStreams = [];
-  async.eachSeries(groups, (group, next) => {
-    getAllLogStreamsForGroup(cwlogs, group, (err, result) => {
+  const all = groups.reduce((memo, group) => {
+    const promise = async() => {
+      const result = await getAllLogStreamsForGroup(cwlogs, group);
       logStreams = logStreams.concat(result);
-      next();
-    });
-  }, (err) => {
-    if (err) {
-      console.log(err);
-    }
-    callback(err, logStreams);
-  });
+    };
+    memo.push(promise());
+    return memo;
+  }, [])
+  await Promise.all(all);
+  return logStreams;
 };
 
 module.exports.getStreams = getStreams;
@@ -119,11 +109,9 @@ module.exports.builder = {
   },
 };
 
-module.exports.handler = (cwlogs, argv) => {
+module.exports.handler = async(cwlogs, argv) => {
   logUtils.startSpinner();
-  getStreams(cwlogs, [argv.g], (err, logStreams) => {
-    if (err) throw err;
-    logUtils.stopSpinner();
-    print(argv, logStreams);
-  });
+  const logStreams = await getStreams(cwlogs, [argv.g]);
+  logUtils.stopSpinner();
+  print(argv, logStreams);
 };
