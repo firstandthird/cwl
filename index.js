@@ -61,10 +61,10 @@ _.each(commands, (c) => {
 });
 
 yargs.demand(1)
-.option('access_key', {
+.option('accessKey', {
   describe: 'aws access key'
 })
-.option('secret_key', {
+.option('secretKey', {
   describe: 'aws secret key'
 })
 .option('P', {
