@@ -70,7 +70,7 @@ yargs.demand(1)
 .option('P', {
   alias: 'profile',
   describe: 'aws profile',
-  default: 'default'
+  default: false
 })
 .option('region', {
   describe: 'aws region',
