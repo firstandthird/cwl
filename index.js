@@ -9,7 +9,7 @@ const search = require('./actions/search.js');
 const log = require('./actions/log.js');
 
 const initAWS = (argv) => {
-  return require('./lib/commonAWS')(argv);
+  return require('aws-creds')(require('aws-sdk'), 'CloudWatchLogs', argv);
 };
 
 const handler = (actionHandler, argv) => {
@@ -78,5 +78,5 @@ yargs.demand(1)
 .strict()
 .help('h')
 .alias('h', 'help')
-.env(true)
+.env(false)
 .argv;

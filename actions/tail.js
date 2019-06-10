@@ -75,40 +75,36 @@ const tail = (cwlogs, argv) => {
   const timePadding = 10 * 1000;
   const seenEvents = {};
 
-  const getLogs = (params, startTime) => {
+  const getLogs = async(params, startTime) => {
     logUtils.startSpinner();
     params.startTime = params.startTime ? params.startTime
       : new Date().getTime() - startTime - timePadding;
     params.limit = argv.l;
-    cwlogs.filterLogEvents(params, (error, data) => {
-      if (error) {
-        console.log(error);
+    try {
+      const data = await cwlogs.filterLogEvents(params).promise();
+      if (data.events.length === 0) {
+        return;
       }
-      try {
-        if (data.events.length === 0) {
+      params.startTime = _.last(data.events).timestamp;
+      data.events.forEach((event) => {
+        if (seenEvents[event.eventId]) {
           return;
         }
-        params.startTime = _.last(data.events).timestamp;
-        data.events.forEach((event) => {
-          if (seenEvents[event.eventId]) {
-            return;
-          }
-          logUtils.printLog(argv, event);
-          seenEvents[event.eventId] = true;
-        });
-        count++;
-        if (count === argv.m) {
-          console.log('--- All Done ---');
-          process.exit(0);
-        }
-      } catch (exc) {
-        console.log(exc);
-      } finally {
-        setTimeout(() => {
-          getLogs(params, defaultInterval);
-        }, defaultInterval);
+        logUtils.printLog(argv, event);
+        seenEvents[event.eventId] = true;
+      });
+      count++;
+      if (count === argv.m) {
+        console.log('--- All Done ---');
+        process.exit(0);
       }
-    });
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setTimeout(() => {
+        getLogs(params, defaultInterval);
+      }, defaultInterval);
+    }
   };
 
   getLogs(initialParams, 1000 * 60 * beginning);
