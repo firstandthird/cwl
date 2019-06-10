@@ -50,7 +50,7 @@ const getAllLogStreamsForGroup = async(cwlogs, group) => {
   let notDone = true;
   do {
     try {
-      const data = await cwlogs.describeLogStreams(params);
+      const data = await cwlogs.describeLogStreams(params).promise();
       _.each(data.logStreams, (stream) => {
         allLogStreams.push(_.defaults(stream, { logGroupName: group }));
       });
@@ -71,15 +71,15 @@ const getStreams = async(cwlogs, groups) => {
     groups = [groups];
   }
   let logStreams = [];
-  await Promise.all(
-    groups.reduce((memo, group) => {
-      memo.push(new Promise(async resolve => {
-        const result = await getAllLogStreamsForGroup(cwlogs, group);
-        logStreams = logStreams.concat(result);
-      }));
-      return memo;
-    }, [])
-  );
+  const all = groups.reduce((memo, group) => {
+    const promise = async() => {
+      const result = await getAllLogStreamsForGroup(cwlogs, group);
+      logStreams = logStreams.concat(result);
+    };
+    memo.push(promise());
+    return memo;
+  }, [])
+  await Promise.all(all);
   return logStreams;
 };
 
