@@ -83,25 +83,21 @@ const buildNewPage = async(cwlogs, limit, iterator) => {
     return notDone;
   };
   do {
-    cwlogs.filterLogEvents(curParams, (err, data) => {
-      if (err) {
-        return callback(err);
-      }
-      if (data.nextToken) {
-        curParams.nextToken = data.nextToken;
-      } else {
-        // clear this so we know not to query it next time:
-        delete curParams.nextToken;
-        iterator();
-      }
-      curPage = _.sortBy(_.union(curPage, data.events), (o) => {
-        return -o.timestamp;
-      });
-      // printParams("building page " + curPage.length)
-      if (curPage.length > 0) {
-        curYoungest = _.last(curPage).timestamp;
-      }
+    const data = await cwlogs.filterLogEvents(curParams).promise();
+    if (data.nextToken) {
+      curParams.nextToken = data.nextToken;
+    } else {
+      // clear this so we know not to query it next time:
+      delete curParams.nextToken;
+      iterator();
+    }
+    curPage = _.sortBy(_.union(curPage, data.events), (o) => {
+      return -o.timestamp;
     });
+    // printParams("building page " + curPage.length)
+    if (curPage.length > 0) {
+      curYoungest = _.last(curPage).timestamp;
+    }
   } while (notDone());
 };
 
@@ -176,7 +172,6 @@ module.exports.handler = async(cwlogs, argv) => {
   };
 
   const handlePrompt = (err, result) => {
-    console.log('handlepromot');
     if (err) {
       throw err;
     }
