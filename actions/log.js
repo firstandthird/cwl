@@ -113,7 +113,7 @@ const iterateToPreviousTime = () => {
 
 const getStartingPage = async(cwlogs, argv) => {
   curParams = initParams(argv);
-  buildNewPage(cwlogs, argv.l, iterateToPreviousTime);
+  await buildNewPage(cwlogs, argv.l, iterateToPreviousTime);
 };
 
 const getPrevPage = async(cwlogs, argv) => {
@@ -134,18 +134,16 @@ const getPrevPage = async(cwlogs, argv) => {
   }
 };
 
-const getNextPage = (cwlogs, argv) => {
+const getNextPage = async(cwlogs, argv) => {
   if (!curParams.nextToken) {
     const nextIndex = index - 1;
     if (nextIndex < 0) {
       console.log('`>>>> Reached beginning of log');
       // todo: query for new logs and add them to the front of the list
       // curPage = [];
-      // buildNewPage(cwlogs, argv.l, iterateToNextTime, (res) => {
-      //   pages.unshift(curPage);
-      //   index = 0;
-      //   callback();
-      // });
+      // await buildNewPage(cwlogs, argv.l, iterateToNextTime);
+      // pages.unshift(curPage);
+      // index = 0;
     } else {
       index -= 1;
       curPage = pages[index];
@@ -164,14 +162,13 @@ const promptMessage = '   ';
 // const promptMessage = '(p)rev/ (q)uit (hit enter for prev)';
 
 module.exports.handler = async(cwlogs, argv) => {
-  prompt.message = '';
+  prompt.message = 'p (or enter) for prev page of logs, n for next page, q to exit';
   prompt.delimiter = '';
-  console.log(' p (or enter) for prev page of logs, n for next page, q to exit');
   const printPage = (page) => {
     logUtils.printLogSet(argv, page);
   };
 
-  const handlePrompt = (err, result) => {
+  const handlePrompt = async(err, result) => {
     if (err) {
       throw err;
     }
@@ -181,7 +178,7 @@ module.exports.handler = async(cwlogs, argv) => {
     }
     if (cmdMatches(prevCommands, result[promptMessage])) {
       logUtils.startSpinner();
-      getPrevPage(cwlogs, argv);
+      await getPrevPage(cwlogs, argv);
       logUtils.stopSpinner();
       printPage(curPage);
       prompt.get([promptMessage], handlePrompt);
@@ -190,15 +187,18 @@ module.exports.handler = async(cwlogs, argv) => {
     // todo: add support for 'next'
     if (cmdMatches(nextCommands, result[promptMessage])) {
       logUtils.startSpinner();
-      getNextPage(cwlogs, argv);
+      await getNextPage(cwlogs, argv);
       logUtils.stopSpinner();
       printPage(curPage);
       prompt.get([promptMessage], handlePrompt);
     }
   };
+  console.log('Now loading first page of log entries....');
+  logUtils.startSpinner();
   await getStartingPage(cwlogs, argv);
   addPage(curPage);
   index++;
+  logUtils.stopSpinner();
   printPage(curPage);
   prompt.start();
   prompt.get([promptMessage], handlePrompt);

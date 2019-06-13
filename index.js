@@ -72,9 +72,6 @@ yargs.demand(1)
   describe: 'aws profile',
   default: false
 })
-.option('region', {
-  describe: 'aws region',
-})
 .strict()
 .help('h')
 .alias('h', 'help')
