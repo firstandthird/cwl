@@ -6,6 +6,7 @@ const groups = require('./actions/groups.js');
 const streams = require('./actions/streams.js');
 const tail = require('./actions/tail.js');
 const search = require('./actions/search.js');
+const cleanup = require('./actions/cleanup.js');
 const log = require('./actions/log.js');
 
 const initAWS = (argv) => {
@@ -44,6 +45,12 @@ const commands = [
     desc: ' search group of logs for a specific query. can include streamname too.',
     builder: search.builder,
     handler: search.handler
+  },
+  {
+    name: 'cleanup',
+    desc: "remove streams that haven't had logs in the last X days",
+    builder: cleanup.builder,
+    handler: cleanup.handler
   },
   {
     name: 'logs',
